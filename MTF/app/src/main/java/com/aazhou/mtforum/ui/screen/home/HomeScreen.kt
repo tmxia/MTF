@@ -120,6 +120,14 @@ fun HomeScreen(
     
     scrollToTopTick: Int,
 ) {
+    // ── 临时调试：显示 ViewModel 实例标记（测完删）
+    androidx.compose.material3.Text(
+        text = "VM:${viewModel.instTag}",
+        modifier = androidx.compose.ui.Modifier.padding(4.dp),
+        color = androidx.compose.ui.graphics.Color.Red,
+        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
+    )
+
     val colors = LocalMtfColors.current
     val container = LocalContext.current.container()
     val viewModel: HomeViewModel = appViewModel { HomeViewModel(it.repository, it.contentCache) }
