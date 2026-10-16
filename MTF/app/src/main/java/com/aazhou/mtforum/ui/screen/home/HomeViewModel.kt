@@ -137,6 +137,11 @@ class HomeViewModel(
 
     fun refreshOnEnter(view: String) {
         if (view !in entered) return
+        // 已有成功数据时跳过自动刷新：reload 会用第 1 页替换整个列表，
+        // 用户浏览位置超过 1 页时 LazyList 锚不到原 item，被迫跳回顶部。
+        // 想刷新的用户可下拉，那个走 refresh() 通道。
+        val feed = _feeds.value[view]
+        if (feed?.state is UiState.Success) return
         viewModelScope.launch { reload(view) }
     }
 
