@@ -179,7 +179,7 @@ fun NoticeTabScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize().padding(padding),
             
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = 2,
         ) { page ->
             val tab = tabs[page]
             val tabState = tabStates[tab] ?: NoticeTabState()

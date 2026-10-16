@@ -460,7 +460,7 @@ fun FollowListScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize().padding(padding),
             
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = 2,
         ) { page ->
             val type = tabs[page].second
             

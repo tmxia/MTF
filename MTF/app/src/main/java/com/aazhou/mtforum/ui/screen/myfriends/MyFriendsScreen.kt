@@ -601,7 +601,7 @@ fun MyFriendsScreen(
             state = pagerState,
             modifier = Modifier.fillMaxSize().padding(padding),
             
-            beyondViewportPageCount = 0,
+            beyondViewportPageCount = 2,
         ) { page ->
             val view = tabs[page].second
             if (view == MyFriendsViewModel.VIEW_REQUEST) {

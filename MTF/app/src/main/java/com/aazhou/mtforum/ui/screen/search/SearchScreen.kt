@@ -495,7 +495,7 @@ fun SearchScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 
-                beyondViewportPageCount = 0,
+                beyondViewportPageCount = 2,
             ) { page ->
                 when (searchTabs[page]) {
                     SearchTab.Thread -> {

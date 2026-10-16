@@ -235,7 +235,7 @@ fun HomeScreen(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 
-                beyondViewportPageCount = 0,
+                beyondViewportPageCount = 2,
             ) { page ->
                 val view = HomeTabs.views[page]
                 
