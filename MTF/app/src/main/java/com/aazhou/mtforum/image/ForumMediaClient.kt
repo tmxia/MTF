@@ -52,7 +52,7 @@ fun forumMediaClient(
                 .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
                 .header("Connection", "keep-alive")
             if (host.endsWith("binmt.cc")) {
-                // 用完整页面路径作 Referer：部分 CDN 只认完整页路径
+                
                 builder.header("Referer", "https://bbs.binmt.cc/forum.php")
                 val cookie = cookieHeader()
                 if (cookie.isNotEmpty()) builder.header("Cookie", cookie)

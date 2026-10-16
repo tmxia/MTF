@@ -517,7 +517,7 @@ private fun FollowTab(
     
     listState.reportViewportAtTop(onViewportAtTopChange)
 
-    // 只在 tick 增加时归位（用户主动下拉刷新）；进入页面不归位
+    
 
 
     val initialTick = remember { tab.resetScrollTick }

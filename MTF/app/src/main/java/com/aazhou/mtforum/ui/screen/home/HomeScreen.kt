@@ -141,9 +141,9 @@ fun HomeScreen(
 
     val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
     
-    // 官方标准做法：rememberSaveable + LazyListState.Saver
-    // Compose 会自动把滚动位置保存到 SavedStateRegistry，NavHost 的
-    // saveState/restoreState 机制会跨页面保留它。
+    
+    
+    
     val listStates = HomeTabs.views.map { _k ->
         key(_k) {
             rememberSaveable(saver = LazyListState.Saver) {
@@ -170,7 +170,7 @@ fun HomeScreen(
         viewModel.consumeActionMessage()
     }
 
-    // ── 临时诊断：屏幕显示滚动 index（测完删） ──
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -312,9 +312,9 @@ private fun FeedPage(
     
     listState.reportViewportAtTop(onViewportAtTopChange)
 
-    // 只在 tick 增加时归位（用户主动下拉刷新触发）；进入页面/自动刷新不归位。
-    // LaunchedEffect 每次进入 composition 会无条件执行一次，
-    // 若不加判断，进入页面就会把位置拉到顶部。
+    
+    
+    
     val initialTick = remember { feed.resetScrollTick }
     LaunchedEffect(feed.resetScrollTick) {
         if (feed.resetScrollTick > initialTick) {

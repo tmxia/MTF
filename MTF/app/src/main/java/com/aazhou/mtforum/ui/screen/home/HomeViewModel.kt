@@ -63,15 +63,15 @@ class HomeViewModel(
 
     private val viewportAtTop = mutableMapOf<String, Boolean>()
 
-    /** 各 tab 的滚动位置（index, offset）；由界面持续回报，重进时用于恢复。 */
+    
     private val scrollPositions = mutableMapOf<String, Pair<Int, Int>>()
 
-    /** 界面持续回报某 tab 的滚动位置。 */
+    
     fun noteScrollPosition(view: String, index: Int, offset: Int) {
         scrollPositions[view] = index to offset
     }
 
-    /** 取某 tab 上次的滚动位置，无记录返回 null。 */
+    
     fun getScrollPosition(view: String): Pair<Int, Int>? = scrollPositions[view]
 
     
@@ -137,9 +137,9 @@ class HomeViewModel(
 
     fun refreshOnEnter(view: String) {
         if (view !in entered) return
-        // 已有成功数据时跳过自动刷新：reload 会用第 1 页替换整个列表，
-        // 用户浏览位置超过 1 页时 LazyList 锚不到原 item，被迫跳回顶部。
-        // 想刷新的用户可下拉，那个走 refresh() 通道。
+        
+        
+        
         val feed = _feeds.value[view]
         if (feed?.state is UiState.Success) return
         viewModelScope.launch { reload(view) }
