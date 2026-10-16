@@ -139,7 +139,24 @@ fun HomeScreen(
 
     val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
     
-    val listStates = HomeTabs.views.map { _k -> key(_k) { rememberLazyListState() } }
+    val listStates = HomeTabs.views.map { _k ->
+        key(_k) {
+            val saved = viewModel.getScrollPosition(_k)
+            rememberLazyListState(
+                initialFirstVisibleItemIndex = saved?.first ?: 0,
+                initialFirstVisibleItemScrollOffset = saved?.second ?: 0,
+            )
+        }
+    }
+
+    // 持续把滚动位置回报给 ViewModel：切页/返回后用于恢复
+    HomeTabs.views.forEachIndexed { i, view ->
+        val idx = listStates[i].firstVisibleItemIndex
+        val off = listStates[i].firstVisibleItemScrollOffset
+        LaunchedEffect(view, idx, off) {
+            viewModel.noteScrollPosition(view, idx, off)
+        }
+    }
 
     
     

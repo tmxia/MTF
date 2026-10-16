@@ -63,6 +63,17 @@ class HomeViewModel(
 
     private val viewportAtTop = mutableMapOf<String, Boolean>()
 
+    /** 各 tab 的滚动位置（index, offset）；由界面持续回报，重进时用于恢复。 */
+    private val scrollPositions = mutableMapOf<String, Pair<Int, Int>>()
+
+    /** 界面持续回报某 tab 的滚动位置。 */
+    fun noteScrollPosition(view: String, index: Int, offset: Int) {
+        scrollPositions[view] = index to offset
+    }
+
+    /** 取某 tab 上次的滚动位置，无记录返回 null。 */
+    fun getScrollPosition(view: String): Pair<Int, Int>? = scrollPositions[view]
+
     
     fun noteViewportAtTop(view: String, atTop: Boolean) {
         viewportAtTop[view] = atTop
