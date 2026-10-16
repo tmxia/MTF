@@ -1,0 +1,268 @@
+package com.aazhou.mtforum.ui.screen.logs
+
+import android.content.Context
+import android.content.Intent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import com.aazhou.mtforum.ui.common.MtfConfirmDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aazhou.mtforum.BuildConfig
+import com.aazhou.mtforum.R
+import com.aazhou.mtforum.data.log.LogEntry
+import com.aazhou.mtforum.data.log.toText
+import com.aazhou.mtforum.ui.common.AppToast
+import com.aazhou.mtforum.ui.common.EmptyBox
+import com.aazhou.mtforum.ui.common.MtfTopBarHeight
+import com.aazhou.mtforum.ui.common.appViewModel
+import com.aazhou.mtforum.ui.common.saveTextDocument
+import com.aazhou.mtforum.ui.theme.LocalMtfColors
+import com.aazhou.mtforum.ui.theme.bodyTextColor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+
+
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LogDetailScreen(
+    id: Long,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    val viewModel: LogDetailViewModel = appViewModel { LogDetailViewModel(it.logStore, id) }
+    val entry by viewModel.entry.collectAsStateWithLifecycle()
+    val colors = LocalMtfColors.current
+    val scope = rememberCoroutineScope()
+    var deleteConfirmOpen by remember { mutableStateOf(false) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("日志详情") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(painterResource(R.drawable.ic_back), contentDescription = "返回")
+                    }
+                },
+                actions = {
+                    val current = entry
+                    if (current != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    exportEntry(context, current, logFileName(), scope) { AppToast.show(it) }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_download),
+                                contentDescription = "导出此条",
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .clickable { shareEntry(context, current) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_share),
+                                contentDescription = "分享此条",
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .clickable { deleteConfirmOpen = true },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_delete),
+                                contentDescription = "删除此条",
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                },
+                expandedHeight = MtfTopBarHeight,
+            )
+        },
+        containerColor = colors.background,
+        contentColor = bodyTextColor(),
+    ) { padding ->
+        val current = entry
+        if (current == null) {
+            Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center,
+            ) {
+                EmptyBox("日志不存在或已被清空", Modifier)
+            }
+            return@Scaffold
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.quoteBackground),
+                ) {
+                    Text(
+                        current.level.label.take(1),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = levelColor(current.level),
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "${current.level.label} · ${current.tag}",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Medium,
+                        color = bodyTextColor(),
+                    )
+                    Text(
+                        formatFullTime(current.time),
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = colors.textSecondary,
+                    )
+                }
+            }
+            Text(
+                current.message,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                color = bodyTextColor(),
+                modifier = Modifier.padding(top = 16.dp),
+            )
+            current.detail?.takeIf { it.isNotBlank() }?.let { detail ->
+                Text(
+                    "异常堆栈",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.textSecondary,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 6.dp),
+                )
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                    ),
+                    color = bodyTextColor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.quoteBackground)
+                        .padding(12.dp),
+                )
+            }
+        }
+    }
+
+    if (deleteConfirmOpen) {
+        MtfConfirmDialog(
+            title = "删除日志记录",
+            message = "删除后不可恢复，已导出的文件不受影响。",
+            confirmText = "确认删除",
+            cancelText = "取消",
+            onDismissRequest = { deleteConfirmOpen = false },
+            onConfirm = {
+                deleteConfirmOpen = false
+                viewModel.delete {
+                    AppToast.show("已删除该条日志")
+                    onBack()
+                }
+            },
+        )
+    }
+}
+
+
+private fun shareEntry(context: Context, entry: LogEntry) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, "MTF v${BuildConfig.VERSION_NAME}\n${entry.toText()}")
+    }
+    context.startActivity(Intent.createChooser(intent, "分享此条日志"))
+}
+
+
+private fun exportEntry(
+    context: Context,
+    entry: LogEntry,
+    fileName: String,
+    scope: CoroutineScope,
+    onResult: (String) -> Unit,
+) {
+    scope.launch {
+        val ok = withContext(Dispatchers.IO) {
+            saveTextDocument(context, fileName, entry.toText()) != null
+        }
+        onResult(if (ok) "已导出到 下载/MTF/Logs" else "导出失败")
+    }
+}
+
+
+private fun formatFullTime(millis: Long): String =
+    SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault()).format(Date(millis))
