@@ -118,7 +118,7 @@ class HomeViewModel(
         if (view in _refreshing.value) return
         _refreshing.value = _refreshing.value + view
         viewModelScope.launch {
-            reload(view)
+            reload(view, userInitiated = true)
             _refreshing.value = _refreshing.value - view
         }
     }
@@ -145,7 +145,7 @@ class HomeViewModel(
         viewModelScope.launch { reload(view) }
     }
 
-    private suspend fun reload(view: String) {
+    private suspend fun reload(view: String, userInitiated: Boolean = false) {
         if (view == HomeTabs.HOT) {
             
             runCatching { repository.home() }.onSuccess {
@@ -162,7 +162,7 @@ class HomeViewModel(
                         hasNext = data.hasNext,
                         
                         resetScrollTick = it.resetScrollTick +
-                            if (viewportAtTop[view] == true) 1 else 0,
+                            if (userInitiated) 1 else 0,
                     )
                 }
                 saveFeedToCache(view)
