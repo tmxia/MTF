@@ -224,7 +224,25 @@ private fun NoticeTabPage(
             
             listState.reportViewportAtTop(onViewportAtTopChange)
 
-            LaunchedEffect(tabState.resetScrollTick) { listState.scrollToNewest() }
+            // 只在 tick 增加时归位（用户主动下拉刷新）；进入页面不归位
+
+
+            val initialTick = remember { tabState.resetScrollTick }
+
+
+            LaunchedEffect(tabState.resetScrollTick) {
+
+
+                if (tabState.resetScrollTick > initialTick) {
+
+
+                    listState.scrollToNewest()
+
+
+                }
+
+
+            }
             if (content.isEmpty()) {
                 EmptyBox(emptyText, Modifier.fillMaxSize())
             } else {

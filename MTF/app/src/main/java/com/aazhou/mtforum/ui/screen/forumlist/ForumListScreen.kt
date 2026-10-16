@@ -96,7 +96,19 @@ var followedMap by remember { mutableStateOf(emptyMap<String, String>()) }
 
 
     LaunchedEffect(Unit) { viewModel.refreshOnEnter() }
-    LaunchedEffect(resetScrollTick) { listState.scrollToNewest() }
+    // 只在 tick 增加时归位（用户主动下拉刷新）；进入页面不归位
+
+    val initialTick = remember { resetScrollTick }
+
+    LaunchedEffect(resetScrollTick) {
+
+        if (resetScrollTick > initialTick) {
+
+            listState.scrollToNewest()
+
+        }
+
+    }
 
     LaunchedEffect(actionMessage) {
         val message = actionMessage ?: return@LaunchedEffect

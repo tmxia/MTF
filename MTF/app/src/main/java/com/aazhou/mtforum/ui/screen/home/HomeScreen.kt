@@ -36,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -150,32 +149,6 @@ fun HomeScreen(
             rememberSaveable(saver = LazyListState.Saver) {
                 LazyListState()
             }
-        }
-    }
-
-    // ── 滚动诊断日志（测完删） ──────────
-    HomeTabs.views.forEachIndexed { i, view ->
-        DisposableEffect(view, listStates[i]) {
-            container.logger.info(
-                "HomeScroll",
-                "ENTER tab=$view idx=${listStates[i].firstVisibleItemIndex} off=${listStates[i].firstVisibleItemScrollOffset}",
-            )
-            onDispose {
-                container.logger.info(
-                    "HomeScroll",
-                    "LEAVE tab=$view idx=${listStates[i].firstVisibleItemIndex} off=${listStates[i].firstVisibleItemScrollOffset}",
-                )
-            }
-        }
-    }
-
-    HomeTabs.views.forEachIndexed { i, view ->
-        val feed = feeds[view]
-        LaunchedEffect(view, feed?.resetScrollTick) {
-            container.logger.info(
-                "HomeScroll",
-                "TICK tab=$view tick=${feed?.resetScrollTick} idx=${listStates[i].firstVisibleItemIndex}",
-            )
         }
     }
 
@@ -339,7 +312,15 @@ private fun FeedPage(
     
     listState.reportViewportAtTop(onViewportAtTopChange)
 
-    LaunchedEffect(feed.resetScrollTick) { listState.scrollToNewest() }
+    // 只在 tick 增加时归位（用户主动下拉刷新触发）；进入页面/自动刷新不归位。
+    // LaunchedEffect 每次进入 composition 会无条件执行一次，
+    // 若不加判断，进入页面就会把位置拉到顶部。
+    val initialTick = remember { feed.resetScrollTick }
+    LaunchedEffect(feed.resetScrollTick) {
+        if (feed.resetScrollTick > initialTick) {
+            listState.scrollToNewest()
+        }
+    }
     
     var rankWasMissing by remember { mutableStateOf(rankThreads.isEmpty()) }
     LaunchedEffect(rankThreads.isNotEmpty()) {
