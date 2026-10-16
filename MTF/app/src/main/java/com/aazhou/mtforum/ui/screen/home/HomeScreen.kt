@@ -91,6 +91,11 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filter
 
+// 全局 LazyListState 缓存：跨 composition 重建复用实例，滚动位置不丢。
+// tab 数量有限，轻微泄漏可接受。
+private val globalHomeListStates = mutableMapOf<String, LazyListState>()
+
+
 
 
 
@@ -109,10 +114,6 @@ object HomeTabs {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-// 全局 LazyListState 缓存：跨 composition 重建复用实例，滚动位置不丢。
-// tab 数量有限，轻微泄漏可接受。
-private val globalHomeListStates = mutableMapOf<String, LazyListState>()
-
 fun HomeScreen(
     onSearch: () -> Unit,
     onToggleTheme: () -> Unit,
