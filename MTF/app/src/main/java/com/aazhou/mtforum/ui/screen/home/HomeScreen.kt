@@ -170,6 +170,20 @@ fun HomeScreen(
         viewModel.consumeActionMessage()
     }
 
+    // ── 临时诊断：屏幕显示滚动 index（测完删） ──
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 200.dp),
+        contentAlignment = androidx.compose.ui.Alignment.TopCenter,
+    ) {
+        androidx.compose.material3.Text(
+            text = "IdxDebug p=${pagerState.currentPage} i=${listStates[pagerState.currentPage].firstVisibleItemIndex}",
+            color = androidx.compose.ui.graphics.Color.Red,
+            style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+        )
+    }
+
     Scaffold(
         containerColor = colors.background,
         
