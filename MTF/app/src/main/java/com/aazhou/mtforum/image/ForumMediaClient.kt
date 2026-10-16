@@ -49,8 +49,11 @@ fun forumMediaClient(
             val builder: Request.Builder = request.newBuilder()
                 .header("User-Agent", userAgent)
                 .header("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+                .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                .header("Connection", "keep-alive")
             if (host.endsWith("binmt.cc")) {
-                builder.header("Referer", "https://bbs.binmt.cc/")
+                // 用完整页面路径作 Referer：部分 CDN 只认完整页路径
+                builder.header("Referer", "https://bbs.binmt.cc/forum.php")
                 val cookie = cookieHeader()
                 if (cookie.isNotEmpty()) builder.header("Cookie", cookie)
             }
@@ -110,4 +113,4 @@ internal fun shouldRateLimitMedia(url: HttpUrl): Boolean {
 
 
 
-private const val MEDIA_MIN_INTERVAL_MS = 150L
+private const val MEDIA_MIN_INTERVAL_MS = 500L
