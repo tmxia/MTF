@@ -81,6 +81,7 @@ import com.aazhou.mtforum.ui.common.SwipeTabIndicator
 import com.aazhou.mtforum.ui.common.UiState
 import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.theme.LocalIsDarkTheme
 import com.aazhou.mtforum.ui.theme.LocalMtfColors
 import com.aazhou.mtforum.ui.theme.accentTextColor
@@ -138,6 +139,19 @@ class FollowListViewModel(
 
     
     private val entered = mutableSetOf<String>()
+
+    /**
+     * 各 key 的视口是否贴顶（由界面持续回报）。
+     *
+     * 归位判据必须在数据替换**之前**取：替换后 LazyList 已按 item key 把旧首条锚回原处，
+     * 那时读到的 index 是「头部新插了几条」而不是用户位置。
+     */
+    private val viewportAtTop = mutableMapOf<String, Boolean>()
+
+    /** 界面回报某 key 的视口位置；只在贴顶状态变化时被调用。 */
+    fun noteViewportAtTop(type: String, atTop: Boolean) {
+        viewportAtTop[type] = atTop
+    }
 
     private val cacheJson = Json { ignoreUnknownKeys = true }
 
@@ -217,7 +231,9 @@ class FollowListViewModel(
                         state = UiState.Success(data.users),
                         page = 1,
                         hasNext = data.hasNext,
-                        resetScrollTick = it.resetScrollTick + 1,
+                        // 替换前贴顶才置位：中段用户不打扰，且由数据层在替换时取真值
+                        resetScrollTick = it.resetScrollTick +
+                            if (viewportAtTop[type] == true) 1 else 0,
                     )
                 }
                 saveToCache(uid, type)
@@ -453,6 +469,7 @@ fun FollowListScreen(
                 tab = tab,
                 refreshing = type in refreshing,
                 listState = listStates[page],
+                onViewportAtTopChange = { viewModel.noteViewportAtTop(type, it) },
                 emptyText = "暂无${tabs[page].first}用户",
                 showRemark = type == "following",
                 onRetry = { viewModel.retry(type) },
@@ -484,6 +501,7 @@ private fun FollowTab(
     tab: FollowTabState,
     refreshing: Boolean,
     listState: LazyListState,
+    onViewportAtTopChange: (Boolean) -> Unit,
     emptyText: String,
     showRemark: Boolean,
     onRetry: () -> Unit,
@@ -495,6 +513,9 @@ private fun FollowTab(
 ) {
     
     
+    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
     LaunchedEffect(tab.resetScrollTick) { listState.scrollToNewest() }
     when (val current = tab.state) {
         is UiState.Loading -> LoadingBox()

@@ -71,6 +71,7 @@ import com.aazhou.mtforum.ui.common.UiState
 import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.bottomBarContentPadding
 import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.theme.LocalIsDarkTheme
 import com.aazhou.mtforum.ui.theme.LocalMtfColors
 import com.aazhou.mtforum.ui.theme.accentTextColor
@@ -184,6 +185,7 @@ fun NoticeTabScreen(
             NoticeTabPage(
                 tabState = tabState,
                 emptyText = "暂无${tab.title}",
+                    onViewportAtTopChange = { viewModel.noteViewportAtTop(tab, it) },
                 listState = listStates[page],
                 onRefresh = { viewModel.refresh(tab) },
                 onLoadMore = { viewModel.loadMore(tab) },
@@ -203,6 +205,7 @@ private fun NoticeTabPage(
     tabState: NoticeTabState,
     emptyText: String,
     listState: LazyListState,
+    onViewportAtTopChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
@@ -217,6 +220,9 @@ private fun NoticeTabPage(
             val content = current.data
             
             
+            // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+            listState.reportViewportAtTop(onViewportAtTopChange)
+
             LaunchedEffect(tabState.resetScrollTick) { listState.scrollToNewest() }
             if (content.isEmpty()) {
                 EmptyBox(emptyText, Modifier.fillMaxSize())

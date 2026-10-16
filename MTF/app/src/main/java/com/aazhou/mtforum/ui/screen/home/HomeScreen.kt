@@ -72,6 +72,7 @@ import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.bottomBarContentPadding
 import com.aazhou.mtforum.ui.common.container
 import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.common.scrollToTop
 import com.aazhou.mtforum.ui.common.TopBarActionIcons
 import com.aazhou.mtforum.ui.common.TopBarActionsEndPadding
@@ -205,6 +206,7 @@ fun HomeScreen(
                     refreshing = view in refreshing,
                     listState = listStates[page],
                     rankThreads = if (view == HomeTabs.HOT) hot?.hotThreads.orEmpty() else emptyList(),
+                    onViewportAtTopChange = { viewModel.noteViewportAtTop(view, it) },
                     onRefresh = { viewModel.refresh(view) },
                     onRetry = { viewModel.retry(view) },
                     onLoadMore = { viewModel.loadMore(view) },
@@ -240,6 +242,7 @@ private fun FeedPage(
     refreshing: Boolean,
     listState: LazyListState,
     rankThreads: List<Thread>,
+    onViewportAtTopChange: (Boolean) -> Unit,
     onRefresh: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -283,6 +286,9 @@ private fun FeedPage(
     var rankExpanded by remember { mutableStateOf(false) }
 
     
+    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
     LaunchedEffect(feed.resetScrollTick) { listState.scrollToNewest() }
     
     var rankWasMissing by remember { mutableStateOf(rankThreads.isEmpty()) }

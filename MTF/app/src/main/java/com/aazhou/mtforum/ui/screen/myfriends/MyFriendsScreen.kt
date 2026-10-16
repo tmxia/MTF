@@ -75,6 +75,7 @@ import com.aazhou.mtforum.ui.common.SwipeTabIndicator
 import com.aazhou.mtforum.ui.common.UiState
 import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.theme.LocalIsDarkTheme
 import com.aazhou.mtforum.ui.theme.LocalMtfColors
 import com.aazhou.mtforum.ui.theme.accentTextColor
@@ -155,6 +156,19 @@ class MyFriendsViewModel(
 
     
     private var loadMoreRequestsJob: Job? = null
+
+    /**
+     * 各 tab（含好友请求 [VIEW_REQUEST]）的视口是否贴顶，由界面持续回报。
+     *
+     * 归位判据必须在数据替换**之前**取：替换后 LazyList 已按 item key 把旧首条锚回原处，
+     * 那时读到的 index 是「头部新插了几条」而不是用户位置。
+     */
+    private val viewportAtTop = mutableMapOf<String, Boolean>()
+
+    /** 界面回报某 tab 的视口位置；只在贴顶状态变化时被调用。 */
+    fun noteViewportAtTop(view: String, atTop: Boolean) {
+        viewportAtTop[view] = atTop
+    }
 
     private val cacheJson = Json { ignoreUnknownKeys = true }
 
@@ -246,7 +260,9 @@ class MyFriendsViewModel(
                         state = UiState.Success(data.users),
                         page = 1,
                         hasNext = data.hasNext,
-                        resetScrollTick = it.resetScrollTick + 1,
+                        // 替换前贴顶才置位：中段用户不打扰，且由数据层在替换时取真值
+                        resetScrollTick = it.resetScrollTick +
+                            if (viewportAtTop[view] == true) 1 else 0,
                     )
                 }
                 saveToCache(uid, view)
@@ -335,7 +351,10 @@ class MyFriendsViewModel(
                 requestPage = 1
                 _requestHasNext.value = pageData.hasNext
                 _requestState.value = UiState.Success(pageData.requests)
-                _requestResetTick.value = _requestResetTick.value + 1
+                // 替换前贴顶才归位：好友请求同样会被新请求插到头部，判据同列表 tab
+                if (viewportAtTop[VIEW_REQUEST] == true) {
+                    _requestResetTick.value = _requestResetTick.value + 1
+                }
                 saveRequestsToCache(uid)
             }
             .onFailure { e ->
@@ -595,6 +614,7 @@ fun MyFriendsScreen(
                     loadingMore = requestLoadingMore,
                     hasNext = requestHasNext,
                     listState = listStates[page],
+                    onViewportAtTopChange = { viewModel.noteViewportAtTop(MyFriendsViewModel.VIEW_REQUEST, it) },
                     onRetry = { viewModel.retryRequests() },
                     onRefresh = { viewModel.refresh(view) },
                     onApprove = { viewModel.approveRequest(it) },
@@ -610,6 +630,7 @@ fun MyFriendsScreen(
                     refreshing = view in refreshing,
                     view = view,
                     listState = listStates[page],
+                    onViewportAtTopChange = { viewModel.noteViewportAtTop(view, it) },
                     emptyText = "暂无${tabs[page].first}信息",
                     pendingUid = friendPending,
                     onRetry = { viewModel.retry(view) },
@@ -632,6 +653,7 @@ private fun FriendsTab(
     refreshing: Boolean,
     view: String,
     listState: LazyListState,
+    onViewportAtTopChange: (Boolean) -> Unit,
     emptyText: String,
     pendingUid: String,
     onRetry: () -> Unit,
@@ -643,6 +665,9 @@ private fun FriendsTab(
 ) {
     
     
+    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
     LaunchedEffect(tab.resetScrollTick) { listState.scrollToNewest() }
     when (val current = tab.state) {
         is UiState.Loading -> LoadingBox()
@@ -711,6 +736,7 @@ private fun FriendRequestList(
     loadingMore: Boolean,
     hasNext: Boolean,
     listState: LazyListState,
+    onViewportAtTopChange: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     onApprove: (FriendRequestItem) -> Unit,
@@ -719,6 +745,9 @@ private fun FriendRequestList(
 ) {
     
     
+    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
     LaunchedEffect(resetScrollTick) { listState.scrollToNewest() }
     when (val current = requestState) {
         is UiState.Loading -> LoadingBox()

@@ -62,6 +62,7 @@ import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.container
 import com.aazhou.mtforum.ui.common.onDoubleTapToTop
 import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.common.scrollToTop
 import com.aazhou.mtforum.ui.theme.LocalMtfColors
 import com.aazhou.mtforum.ui.theme.accentTextColor
@@ -188,6 +189,7 @@ fun ThreadListScreen(
                 tab = tab,
                 listState = listStates[page],
                 blockedUids = blockedUids,
+                    onViewportAtTopChange = { viewModel.noteViewportAtTop(sort, it) },
                 onRetry = { viewModel.retry(sort) },
                 onRefresh = { viewModel.refresh(sort) },
                 onLoadMore = { viewModel.loadMore(sort) },
@@ -237,6 +239,7 @@ private fun ForumThreadList(
     tab: ForumTabState,
     listState: LazyListState,
     blockedUids: Set<String>,
+    onViewportAtTopChange: (Boolean) -> Unit,
     onRetry: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
@@ -249,6 +252,9 @@ private fun ForumThreadList(
     var announcementExpanded by remember { mutableStateOf(false) }
     
     
+    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
     LaunchedEffect(tab.resetScrollTick) { listState.scrollToNewest() }
     when (val current = tab.state) {
         is UiState.Loading -> LoadingBox()
