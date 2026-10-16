@@ -286,7 +286,7 @@ private fun FeedPage(
     var rankExpanded by remember { mutableStateOf(false) }
 
     
-    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    
     listState.reportViewportAtTop(onViewportAtTopChange)
 
     LaunchedEffect(feed.resetScrollTick) { listState.scrollToNewest() }

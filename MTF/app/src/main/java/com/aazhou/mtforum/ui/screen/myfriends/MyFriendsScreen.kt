@@ -157,15 +157,15 @@ class MyFriendsViewModel(
     
     private var loadMoreRequestsJob: Job? = null
 
-    /**
-     * 各 tab（含好友请求 [VIEW_REQUEST]）的视口是否贴顶，由界面持续回报。
-     *
-     * 归位判据必须在数据替换**之前**取：替换后 LazyList 已按 item key 把旧首条锚回原处，
-     * 那时读到的 index 是「头部新插了几条」而不是用户位置。
-     */
+    
+
+
+
+
+
     private val viewportAtTop = mutableMapOf<String, Boolean>()
 
-    /** 界面回报某 tab 的视口位置；只在贴顶状态变化时被调用。 */
+    
     fun noteViewportAtTop(view: String, atTop: Boolean) {
         viewportAtTop[view] = atTop
     }
@@ -260,7 +260,7 @@ class MyFriendsViewModel(
                         state = UiState.Success(data.users),
                         page = 1,
                         hasNext = data.hasNext,
-                        // 替换前贴顶才置位：中段用户不打扰，且由数据层在替换时取真值
+                        
                         resetScrollTick = it.resetScrollTick +
                             if (viewportAtTop[view] == true) 1 else 0,
                     )
@@ -351,7 +351,7 @@ class MyFriendsViewModel(
                 requestPage = 1
                 _requestHasNext.value = pageData.hasNext
                 _requestState.value = UiState.Success(pageData.requests)
-                // 替换前贴顶才归位：好友请求同样会被新请求插到头部，判据同列表 tab
+                
                 if (viewportAtTop[VIEW_REQUEST] == true) {
                     _requestResetTick.value = _requestResetTick.value + 1
                 }
@@ -665,7 +665,7 @@ private fun FriendsTab(
 ) {
     
     
-    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    
     listState.reportViewportAtTop(onViewportAtTopChange)
 
     LaunchedEffect(tab.resetScrollTick) { listState.scrollToNewest() }
@@ -745,7 +745,7 @@ private fun FriendRequestList(
 ) {
     
     
-    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    
     listState.reportViewportAtTop(onViewportAtTopChange)
 
     LaunchedEffect(resetScrollTick) { listState.scrollToNewest() }

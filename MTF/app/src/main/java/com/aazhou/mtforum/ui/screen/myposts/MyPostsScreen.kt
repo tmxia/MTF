@@ -113,15 +113,15 @@ class MyPostsViewModel(
     
     private val entered = mutableSetOf<String>()
 
-    /**
-     * 各 key 的视口是否贴顶（由界面持续回报）。
-     *
-     * 归位判据必须在数据替换**之前**取：替换后 LazyList 已按 item key 把旧首条锚回原处，
-     * 那时读到的 index 是「头部新插了几条」而不是用户位置。
-     */
+    
+
+
+
+
+
     private val viewportAtTop = mutableMapOf<String, Boolean>()
 
-    /** 界面回报某 key 的视口位置；只在贴顶状态变化时被调用。 */
+    
     fun noteViewportAtTop(type: String, atTop: Boolean) {
         viewportAtTop[type] = atTop
     }
@@ -200,7 +200,7 @@ class MyPostsViewModel(
                         state = UiState.Success(data.threads),
                         page = 1,
                         hasNext = data.hasNext,
-                        // 替换前贴顶才置位：中段用户不打扰，且由数据层在替换时取真值
+                        
                         resetScrollTick = it.resetScrollTick +
                             if (viewportAtTop[type] == true) 1 else 0,
                     )
@@ -392,7 +392,7 @@ private fun MyThreadsTab(
 ) {
     
     
-    // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+    
     listState.reportViewportAtTop(onViewportAtTopChange)
 
     LaunchedEffect(tab.resetScrollTick) { listState.scrollToNewest() }

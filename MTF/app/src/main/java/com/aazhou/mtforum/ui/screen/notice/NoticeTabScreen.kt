@@ -220,7 +220,7 @@ private fun NoticeTabPage(
             val content = current.data
             
             
-            // 视口位置持续回报给数据层：归位判据只能在数据替换前取
+            
             listState.reportViewportAtTop(onViewportAtTopChange)
 
             LaunchedEffect(tabState.resetScrollTick) { listState.scrollToNewest() }
