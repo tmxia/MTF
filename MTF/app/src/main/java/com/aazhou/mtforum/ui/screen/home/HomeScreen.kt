@@ -36,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -149,6 +150,32 @@ fun HomeScreen(
             rememberSaveable(saver = LazyListState.Saver) {
                 LazyListState()
             }
+        }
+    }
+
+    // ── 滚动诊断日志（测完删） ──────────
+    HomeTabs.views.forEachIndexed { i, view ->
+        DisposableEffect(view, listStates[i]) {
+            container.logger.info(
+                "HomeScroll",
+                "ENTER tab=$view idx=${listStates[i].firstVisibleItemIndex} off=${listStates[i].firstVisibleItemScrollOffset}",
+            )
+            onDispose {
+                container.logger.info(
+                    "HomeScroll",
+                    "LEAVE tab=$view idx=${listStates[i].firstVisibleItemIndex} off=${listStates[i].firstVisibleItemScrollOffset}",
+                )
+            }
+        }
+    }
+
+    HomeTabs.views.forEachIndexed { i, view ->
+        val feed = feeds[view]
+        LaunchedEffect(view, feed?.resetScrollTick) {
+            container.logger.info(
+                "HomeScroll",
+                "TICK tab=$view tick=${feed?.resetScrollTick} idx=${listStates[i].firstVisibleItemIndex}",
+            )
         }
     }
 
