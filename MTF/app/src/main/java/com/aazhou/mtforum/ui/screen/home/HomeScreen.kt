@@ -70,7 +70,6 @@ import com.aazhou.mtforum.ui.common.RankCollapsedLimit
 import com.aazhou.mtforum.ui.common.ThreadCard
 import com.aazhou.mtforum.ui.common.UiState
 import com.aazhou.mtforum.ui.common.accountIconModel
-import com.aazhou.mtforum.ui.common.ScrollStore
 import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.bottomBarContentPadding
 import com.aazhou.mtforum.ui.common.container
@@ -110,6 +109,10 @@ object HomeTabs {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+// 全局 LazyListState 缓存：跨 composition 重建复用实例，滚动位置不丢。
+// tab 数量有限，轻微泄漏可接受。
+private val globalHomeListStates = mutableMapOf<String, LazyListState>()
+
 fun HomeScreen(
     onSearch: () -> Unit,
     onToggleTheme: () -> Unit,
@@ -145,40 +148,9 @@ fun HomeScreen(
     val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
     
     val listStates = HomeTabs.views.map { _k ->
-        key(_k) {
-            val saved = ScrollStore.get("home:$_k")
-            remember(_k) {
-                LazyListState(
-                    firstVisibleItemIndex = saved?.first ?: 0,
-                    firstVisibleItemScrollOffset = saved?.second ?: 0,
-                )
-            }
-        }
+        globalHomeListStates.getOrPut(_k) { LazyListState() }
     }
 
-    // ── 顺序：等数据 → 恢复 → 再开始保存 ──────────
-    // 合并为单个 LaunchedEffect，避免保存逻辑抢在恢复前把 (0,0) 写回 Store。
-    HomeTabs.views.forEachIndexed { i, view ->
-        LaunchedEffect(view, listStates[i]) {
-            // 1) 等列表有内容
-            snapshotFlow { listStates[i].layoutInfo.totalItemsCount }
-                .filter { it > 0 }
-                .first()
-
-            // 2) 恢复保存的位置
-            val saved = ScrollStore.get("home:$view")
-            if (saved != null && (saved.first > 0 || saved.second > 0)) {
-                listStates[i].scrollToItem(saved.first, saved.second)
-            }
-
-            // 3) 恢复完成后才开始保存（此后位置变化即写入 Store）
-            snapshotFlow {
-                listStates[i].firstVisibleItemIndex to listStates[i].firstVisibleItemScrollOffset
-            }.collect { (idx, off) ->
-                ScrollStore.note("home:$view", idx, off)
-            }
-        }
-    }
 
     
     
