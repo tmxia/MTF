@@ -35,6 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.key
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -69,6 +70,7 @@ import com.aazhou.mtforum.ui.common.RankCollapsedLimit
 import com.aazhou.mtforum.ui.common.ThreadCard
 import com.aazhou.mtforum.ui.common.UiState
 import com.aazhou.mtforum.ui.common.accountIconModel
+import com.aazhou.mtforum.ui.common.ScrollStore
 import com.aazhou.mtforum.ui.common.appViewModel
 import com.aazhou.mtforum.ui.common.bottomBarContentPadding
 import com.aazhou.mtforum.ui.common.container
@@ -141,20 +143,24 @@ fun HomeScreen(
     
     val listStates = HomeTabs.views.map { _k ->
         key(_k) {
-            val saved = viewModel.getScrollPosition(_k)
-            rememberLazyListState(
-                initialFirstVisibleItemIndex = saved?.first ?: 0,
-                initialFirstVisibleItemScrollOffset = saved?.second ?: 0,
-            )
+            val saved = ScrollStore.get("home:$_k")
+            remember(_k) {
+                LazyListState(
+                    firstVisibleItemIndex = saved?.first ?: 0,
+                    firstVisibleItemScrollOffset = saved?.second ?: 0,
+                )
+            }
         }
     }
 
-    // 持续把滚动位置回报给 ViewModel：切页/返回后用于恢复
+    // 持续保存滚动位置到全局存储：切页/返回后恢复
     HomeTabs.views.forEachIndexed { i, view ->
-        val idx = listStates[i].firstVisibleItemIndex
-        val off = listStates[i].firstVisibleItemScrollOffset
-        LaunchedEffect(view, idx, off) {
-            viewModel.noteScrollPosition(view, idx, off)
+        LaunchedEffect(view, listStates[i]) {
+            snapshotFlow {
+                listStates[i].firstVisibleItemIndex to listStates[i].firstVisibleItemScrollOffset
+            }.collect { (idx, off) ->
+                ScrollStore.note("home:$view", idx, off)
+            }
         }
     }
 
