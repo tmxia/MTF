@@ -1,0 +1,1774 @@
+package com.aazhou.mtforum
+
+import com.aazhou.mtforum.data.parser.ForumParser
+import com.aazhou.mtforum.ui.common.ContentBlock
+import com.aazhou.mtforum.ui.common.collectImageUrls
+import com.aazhou.mtforum.ui.common.parseContentBlocks
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/** 站点标题锚点里的图标字体字符：私用区 U+E64E，无字形不打印，但会占一个字符宽度。 */
+private const val ICON_FONT_CHAR = "\uE64E"
+
+class ForumParserTest {
+
+    private val forumListHtml = """
+        <div class="comiis_forumlist comiis_km1">
+          <div class="comiis_bbs_show b_b cl">
+            <h2><a href="javascript:;">MT专区</a></h2>
+          </div>
+          <div id="sub_forum_1" class="comiis_forum_nbox">
+            <ul>
+              <li><a href="https://bbs.binmt.cc/forum-2-1.html" class="b_b b_r">
+                <em><img src="https://cdn.binmt.cc/icon_2.png" alt="版本发布" /></em>
+                <p>版本发布</p></a></li>
+              <li><a href="https://bbs.binmt.cc/forum-37-1.html" class="b_b b_r">
+                <em><span class="bg_a f_f">37</span></em><p>插件交流</p></a></li>
+            </ul>
+          </div>
+        </div>
+    """.trimIndent()
+
+    private val forumPageHtml = """
+        <div class="comiis_forumlist">
+          <ul>
+            <li class="b_t"><a href="https://bbs.binmt.cc/thread-85763-1-1.html">
+              <em>置顶</em>【重要】MT论坛总版规</a></li>
+          </ul>
+          <li class="forumlist_li comiis_znalist">
+            <div class="forumlist_li_top cl">
+              <a href="https://bbs.binmt.cc/home.php?mod=space&uid=156549&do=profile" class="wblist_tximg">
+                <img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=156549"></a>
+              <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=156549&do=profile" class="top_user">feelingboy11</a>
+                <span class="top_lev bg_a f_f">Lv.4</span></h2>
+              <div class="forumlist_li_time"><span class="f_d">25 分钟前</span></div>
+            </div>
+            <div class="mmlist_li_box cl">
+              <h2><a href="https://bbs.binmt.cc/thread-174048-1-1.html">影视仓精简TV版</a></h2>
+              <div class="list_body cl"><a href="https://bbs.binmt.cc/thread-174048-1-1.html">影视仓6.1.7精简原版.apk</a></div>
+            </div>
+            <div class="comiis_xznalist_bottom cl">
+              <ul>
+                <li><a href="https://bbs.binmt.cc/thread-174048-1-1.html"><span class="comiis_tm">3</span></a></li>
+                <li><span class="comiis_tm">25</span></li>
+              </ul>
+            </div>
+          </li>
+        </div>
+    """.trimIndent()
+
+    private val threadHtml = """
+        <html><head><title>关于用AI自写网络验证 - MT论坛</title>
+        <link rel="canonical" href="https://bbs.binmt.cc/thread-174050-1-1.html"></head>
+        <body>
+          <div id="comiis_head"><div class="comiis_head">
+            <a href="https://bbs.binmt.cc/forum-42-1.html" class="kmtit">编程交流</a>
+          </div></div>
+          <script>var fid = parseInt('42'), tid = parseInt('174050');</script>
+          <script>var replyreload, tid = '174050', authorid = '156549', formhash = 'b6a540bd';</script>
+          <div class="comiis_postlist kqide">
+          <div class="comiis_postli comiis_list_readimgs" id="pid11911194">
+            <div class="comiis_postli_top comiis_postli_topv1 bg_f">
+              <a class="postli_top_tximg bg_e"><img class="top_tximg" src="https://avatar.mt2.cn/a.png"></a>
+              <h2><a href="home.php?mod=space&amp;uid=156549" class="top_user f_b">ChenHao</a>
+                <a class="top_lev bg_a f_f">Lv.3 初中生</a></h2>
+              <div class="comiis_postli_time"><span class="f_d"><span class="kmtime">6 分钟前
+                <code class="comiis_iplocality f_d"><font>来自 广东</font></code></span></span></div>
+            </div>
+            <div class="comiis_message bg_f view_one b_b cl message"><div class="comiis_messages">
+              <div class="comiis_a comiis_message_table cl">
+                目前进度百分之30<br /><img src="none.gif" file="https://cdn.binmt.cc/data/attachment/forum/x.png" />
+              </div>
+            </div></div>
+          </div>
+          <div class="comiis_postli comiis_list_readimgs" id="pid11911239">
+            <div class="comiis_postli_top bg_f b_t">
+              <a class="postli_top_tximg bg_e"><img class="top_tximg" src="https://avatar.mt2.cn/b.png"></a>
+              <h2><span class="f_d y">沙发</span>
+                <a href="home.php?mod=space&amp;uid=140217" class="top_user f_b">秋枫Mod</a>
+                <a class="top_lev bg_a f_f">Lv.6 硕士生</a></h2>
+            </div>
+            <div class="comiis_message bg_f view_all cl message"><div class="comiis_messages">
+              <div class="comiis_a comiis_message_table cl">
+                <div class="comiis_quote bg_h b_dashed f_c"><blockquote><font size="2">回复</font>
+                <font color="#999999">ChenHao 发表于 2026-10-2 18:50</font><br />
+                <font color="#999999">目前进度百分之30</font></blockquote></div><br />
+                谢谢
+              </div>
+            </div></div>
+            <div class="comiis_postli_times bg_f">
+              <span class="f_d comiis_tm">3 小时前<code class="comiis_iplocality f_d"><font>来自 河南</font></code></span>
+            </div>
+          </div>
+          <div class="comiis_postli comiis_list_readimgs" id="pid11911300">
+            <div class="comiis_postli_top bg_f b_t">
+              <a class="postli_top_tximg bg_e"><img class="top_tximg" src="https://avatar.mt2.cn/c.png"></a>
+              <h2><span class="f_d y">15<sup>#</sup></span>
+                <a class="top_user f_b">G弟弟</a></h2>
+            </div>
+            <div class="comiis_message bg_f view_all cl message"><div class="comiis_messages">
+              <div class="comiis_a comiis_message_table cl">感谢分享</div>
+            </div></div>
+          </div>
+          </div>
+          <div class="comiis_pltit bg_f b_t cl"><h2>全部评论<span class="f_d">496</span></h2></div>
+          <form id="fastpostform" action="forum.php?mod=post&action=reply&fid=42&tid=174050&replysubmit=yes"></form>
+        </body></html>
+    """.trimIndent()
+
+    @Test
+    fun parsesForumGroups() {
+        val groups = ForumParser.parseForumList(forumListHtml)
+        assertEquals(1, groups.size)
+        assertEquals("MT专区", groups[0].name)
+        assertEquals(2, groups[0].forums.size)
+        assertEquals("2", groups[0].forums[0].fid)
+        assertEquals("版本发布", groups[0].forums[0].name)
+    }
+
+    @Test
+    fun parsesForumPage() {
+        val page = ForumParser.parseForumPage(forumPageHtml, 1)
+        assertEquals(1, page.announcements.size)
+        assertEquals("85763", page.announcements[0].tid)
+        assertEquals(1, page.threads.size)
+        val thread = page.threads[0]
+        assertEquals("174048", thread.tid)
+        assertEquals("影视仓精简TV版", thread.subject)
+        assertEquals("feelingboy11", thread.authorName)
+        assertEquals("25 分钟前", thread.timeText)
+    }
+
+    @Test
+    fun announcementsExcludeRegularThreads() {
+        // 真实站点：普通帖的 <li> class 也含 b_t（forumlist_li comiis_znalist b_t ...），
+        // 且帖内多个链接指向同一 tid。旧选择器会把它们当公告，产生重复 key 导致列表崩溃。
+        val html = """
+            <div class="comiis_forumlist">
+              <ul>
+                <li class="b_t"><a href="https://bbs.binmt.cc/thread-85763-1-1.html"><em>置顶</em>总版规</a></li>
+              </ul>
+              <ul>
+                <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+                  <div class="mmlist_li_box"><h2><a href="https://bbs.binmt.cc/thread-172677-1-1.html">MT管理器2.26.9正式版</a></h2></div>
+                  <div class="list_body"><a href="https://bbs.binmt.cc/thread-172677-1-1.html">更新说明</a></div>
+                </li>
+                <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+                  <div class="mmlist_li_box"><h2><a href="https://bbs.binmt.cc/thread-172546-1-1.html">MT管理器公测版</a></h2></div>
+                  <div class="list_body"><a href="https://bbs.binmt.cc/thread-172546-1-1.html">更新说明</a></div>
+                </li>
+              </ul>
+            </div>
+        """.trimIndent()
+        val page = ForumParser.parseForumPage(html, 1)
+        assertEquals(1, page.announcements.size)
+        assertEquals("85763", page.announcements[0].tid)
+        assertEquals(2, page.threads.size)
+        assertEquals(2, page.threads.map { it.tid }.distinct().size)
+    }
+
+    @Test
+    fun forumPageWithoutH2TitleParsesFromListBody() {
+        // 朋友圈式无标题帖（纯图/纯文）：站点不渲染 mmlist_li_box 里的 h2 标题块，
+        // 标题与正文都落在 list_body 的链接里。旧选择器 h2 a[href*=thread-] 找不到会跳过
+        // 整条帖，导致“看不到自己的帖子”。
+        val html = """
+            <div class="comiis_forumlist">
+              <ul>
+                <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+                  <div class="forumlist_li_top cl">
+                    <a href="https://bbs.binmt.cc/home.php?mod=space&uid=160113&do=profile" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=160113"></a>
+                    <h2><a href="javascript:;" class="user_gz">关注</a>
+                      <a href="https://bbs.binmt.cc/home.php?mod=space&uid=160113&do=profile" class="top_user">username123</a></h2>
+                    <div class="forumlist_li_time"><span class="f_d">27 分钟前</span></div>
+                  </div>
+                  <div class="mmlist_li_box cl">
+                    <div class="list_body cl"><a href="https://bbs.binmt.cc/thread-174666-1-1.html">测试一下发帖功能是否正常，文字内插入图片看看排版是否正常</a></div>
+                    <div class="comiis_pyqlist_imgs comiis_pyqlist_img3p"><ul><li><img src="none.png" comiis_loadimages="https://cdn.binmt.cc/forum.php?mod=image&aid=379135"></li></ul></div>
+                  </div>
+                  <div class="comiis_xznalist_bottom cl"><ul class="cl">
+                    <li><span class="comiis_tm">0</span></li>
+                    <li><span class="comiis_tm">0</span></li>
+                    <li><span class="comiis_tm">4</span></li>
+                  </ul></div>
+                </li>
+              </ul>
+            </div>
+        """.trimIndent()
+        val thread = ForumParser.parseForumPage(html, 1).threads.single()
+        assertEquals("174666", thread.tid)
+        assertEquals("username123", thread.authorName)
+        assertEquals("测试一下发帖功能是否正常，文字内插入图片看看排版是否正常", thread.subject)
+        assertNull(thread.excerpt)
+        assertEquals(listOf("https://cdn.binmt.cc/forum.php?mod=image&aid=379135"), thread.imageUrls)
+    }
+
+    @Test
+    fun parsesThreadPage() {
+        val page = ForumParser.parseThreadPage(threadHtml, 1)
+        assertEquals("174050", page.tid)
+        assertEquals("关于用AI自写网络验证", page.subject)
+        assertEquals("b6a540bd", page.formhash)
+        assertEquals("42", page.fid)
+        assertEquals("编程交流", page.forumName)
+        assertEquals("156549", page.opUid)
+        assertEquals(496, page.totalReplies)
+        assertEquals(3, page.posts.size)
+
+        val op = page.posts[0]
+        assertTrue(op.isOp)
+        assertTrue(op.isFirstPost)
+        assertEquals("ChenHao", op.authorName)
+        assertEquals("广东", op.location)
+        assertTrue(op.contentHtml.contains("目前进度百分之30"))
+        assertEquals(0, op.floor)
+
+        val first = page.posts[1]
+        // 楼层显示按网页端来：站点第 1 页给的是「沙发」这类称谓，原样显示，不换算成楼层号
+        assertEquals("沙发", first.floorLabel)
+        assertEquals(2, first.floor)
+        assertEquals("秋枫Mod", first.authorName)
+        assertEquals("河南", first.location)
+        assertTrue(!first.isOp)
+        // 引用块应从正文 HTML 中移除（改由 quote 字段渲染），正文只留「谢谢」
+        assertEquals("ChenHao", first.quote?.author)
+        assertEquals("2026-10-2 18:50", first.quote?.time)
+        assertEquals("目前进度百分之30", first.quote?.text)
+        assertTrue(!first.contentHtml.contains("comiis_quote"))
+        assertTrue(first.contentHtml.contains("谢谢"))
+
+        // 带 sup 的楼号也要归一化成「15#」
+        assertEquals("15#", page.posts[2].floorLabel)
+        assertEquals(15, page.posts[2].floor)
+    }
+
+    @Test
+    fun totalPagesIgnoresLinkedOtherThreads() {
+        // 正文里引用的其它帖子地址（thread-其它tid-178-1.html、...tid=其它&page=178）
+        // 不是本页分页元素；采信它们会把总页数抬成被引帖的页码，
+        // 续拉据此一直去敲不存在的页、永不收手。
+        val html = """
+            <html><head><title>帖子 - MT论坛</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174050-1-1.html"></head>
+            <body>
+              <div class="comiis_a">参见
+                <a href="https://bbs.binmt.cc/thread-999001-178-1.html">另一帖</a>
+                <a href="https://bbs.binmt.cc/forum.php?mod=viewthread&tid=999002&page=178">另一帖</a>
+              </div>
+              <a href="https://bbs.binmt.cc/thread-174050-3-1.html">3</a>
+            </body></html>
+        """.trimIndent()
+        assertEquals(3, ForumParser.parseThreadPage(html, 1).totalPages)
+    }
+
+    @Test
+    fun totalPagesReadsTidParamForm() {
+        // 倒序分页的页码在查询串里（带 tid），不带 tid 的分页链接也不误排
+        val html = """
+            <html><head><title>帖子</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174050-1-1.html"></head>
+            <body>
+              <a href="https://bbs.binmt.cc/forum.php?mod=viewthread&tid=174050&page=5&ordertype=1">5</a>
+              <a href="thread-174050-2-1.html">2</a>
+            </body></html>
+        """.trimIndent()
+        assertEquals(5, ForumParser.parseThreadPage(html, 1).totalPages)
+    }
+
+    @Test
+    fun totalPagesCountsThisThreadDespiteLeadingOtherThreadLink() {
+        // 真实帖子第 1 页：无 canonical，正文前部有指向其它帖的链接（thread-173642-1-1.html），
+        // 真实 tid 只出现在页面 JS 里。老逻辑扫 thread-\d+ 会误取 173642，令指向 173660 的分页
+        // 链接全被 parseTotalPages 过滤、总页数算成 1，于是「全部评论 260」只显示第 1 页那
+        // 十几条就到底。
+        val html = """
+            <html><head><title>某帖 - MT论坛</title></head>
+            <body>
+              <script>var replyreload, tid = '173660', authorid = '123498', formhash = '9f4db49e';</script>
+              <div class="comiis_a">相关帖子
+                <a href="https://bbs.binmt.cc/thread-173642-1-1.html">另一帖</a>
+              </div>
+              <div class="comiis_pgt">
+                <a href="https://bbs.binmt.cc/thread-173660-2-1.html">2</a>
+                <a href="https://bbs.binmt.cc/thread-173660-3-1.html">3</a>
+                <a href="https://bbs.binmt.cc/thread-173660-4-1.html">4</a>
+                <a href="https://bbs.binmt.cc/thread-173660-21-1.html">21</a>
+              </div>
+            </body></html>
+        """.trimIndent()
+        val page = ForumParser.parseThreadPage(html, 1)
+        assertEquals("173660", page.tid)
+        assertEquals(21, page.totalPages)
+    }
+
+    @Test
+    fun tidPrefersJsAssignmentOverBodyLink() {
+        // 无 canonical、无 fastpostform 时，tid 应取页面 JS 的赋值，而非正文里被引帖的链接
+        val html = """
+            <html><head><title>某帖 - MT论坛</title></head>
+            <body>
+              <div class="comiis_a">引用
+                <a href="https://bbs.binmt.cc/thread-173642-1-1.html">被引帖</a>
+              </div>
+              <script>var tid = '173660';</script>
+            </body></html>
+        """.trimIndent()
+        assertEquals("173660", ForumParser.parseThreadPage(html, 1).tid)
+    }
+
+    @Test
+    fun parsesNoticeAuthor() {
+        // 快速回复框的 noticeauthor 隐藏域：AJAX 回复必需，每次进页面都会变
+        val html = """
+            <html><head><title>某帖 - MT论坛</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174050-1-1.html"></head>
+            <body>
+              <form id="fastpostform" action="forum.php?mod=post&amp;action=reply&amp;fid=42&amp;tid=174050&amp;replysubmit=yes&amp;mobile=2">
+                <input type="hidden" name="formhash" value="b6a540bd" />
+                <input type="hidden" name="noticeauthor" value="e3eaJPllHExBDgHFQTeqXXcU6I7Zbh1pqyEHSfjk">
+              </form>
+            </body></html>
+        """.trimIndent()
+        assertEquals(
+            "e3eaJPllHExBDgHFQTeqXXcU6I7Zbh1pqyEHSfjk",
+            ForumParser.parseThreadPage(html, 1).noticeAuthor,
+        )
+        // 没有 noticeauthor 隐藏域时为 null（未登录/站点未渲染）
+        val bare =
+            """<html><body><form id="fastpostform" action="forum.php?mod=post&action=reply&fid=42&tid=174050"></form></body></html>"""
+        assertNull(ForumParser.parseThreadPage(bare, 1).noticeAuthor)
+    }
+
+    @Test
+    fun replyResultReadsInajaxXmlContract() {
+        // 带 inajax=1 时站点回 XML：CDATA 里是 succeedhandle_（成功）或 errorhandle_（失败）。
+        // 老的「无错误词即成功」会把整页 HTML 误判成成功，这里要求按 handle 标记判定、失败摘站点原文。
+        val successXml =
+            """<root><![CDATA[<script>succeedhandle_fastpost('回复发布成功', {});</script>]]></root>"""
+        val ok = ForumParser.parseReplyResult(successXml)
+        assertTrue(ok.success)
+        assertNull(ok.message)
+
+        val failXml =
+            """<root><![CDATA[<div class="comiis_tip"><p>抱歉，您尚未输入标题或内容<script>if(typeof errorhandle_fastpost=='function'){errorhandle_fastpost('抱歉，您尚未输入标题或内容',{});}</script></p></div>]]></root>"""
+        val fail = ForumParser.parseReplyResult(failXml)
+        assertTrue(!fail.success)
+        assertEquals("抱歉，您尚未输入标题或内容", fail.message)
+
+        // 回执是 inajax XML 却没带任何处理脚本：失败一定会带 errorhandle_，故按成功算，
+        // 避免把已发出的回复报成失败、诱使用户重发
+        val silentXml = """<?xml version="1.0" encoding="utf-8"?><root><![CDATA[]]></root>"""
+        assertTrue(ForumParser.parseReplyResult(silentXml).success)
+
+        // 既不是 inajax 回执也不带错误脚本（被重定向到登录页/风控页）：判失败，
+        // 并把页面里的提示原文带给上层
+        val html = """<html><body><p>抱歉，您尚未登录</p></body></html>"""
+        val unknown = ForumParser.parseReplyResult(html)
+        assertTrue(!unknown.success)
+        assertEquals("抱歉，您尚未登录", unknown.message)
+    }
+
+    @Test
+    fun quoteWithLocationAndPidLink() {
+        val html = """
+            <div class="comiis_a comiis_message_table cl">
+              <div class="comiis_quote bg_h b_dashed f_c"><blockquote><font size="2">回复</font>
+              <font size="2"><a href="forum.php?mod=redirect&amp;goto=findpost&amp;pid=11911193&amp;ptid=174049">
+              <font color="#999999">秋枫Mod 发表于 8 分钟前 来自 河南]</font></a></font><br />
+              拿走不谢 https://lspilot.fun/get-started/installation</blockquote></div><br />
+              这东西，能不能免root
+            </div>
+        """.trimIndent()
+        val page = ForumParser.parseThreadPage(
+            """<html><head><title>求工具</title></head><body>
+                <div class="comiis_postli" id="pid11911250">$html</div></body></html>""",
+            1,
+        )
+        val quote = page.posts.single().quote
+        assertEquals("11911193", quote?.pid)
+        assertEquals("秋枫Mod", quote?.author)
+        // 「8 分钟前」是引用当时的快照，隔天回看是错的，不采用
+        assertNull(quote?.time)
+        assertEquals("拿走不谢 https://lspilot.fun/get-started/installation", quote?.text)
+    }
+
+    @Test
+    fun hiddenContentBlockIsNotAQuote() {
+        // 「游客，回复可见」是站点用 comiis_quote 排版的提示卡，不是引用回复；
+        // 误当成楼中楼会让该回复从评论列表里消失。
+        // 提示本身只是站点排版用的说明，客户端有自己的锁卡，正文里不再保留。
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+              <div class="comiis_a">
+                <div class="comiis_quote bg_h f_c">游客，如果您要查看本帖隐藏内容请<a href="x">回复</a></div>正文内容
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertNull(post.quote)
+        assertTrue(post.hasHiddenContent)
+        assertTrue(!post.contentHtml.contains("游客"))
+        assertTrue(post.contentHtml.contains("正文内容"))
+    }
+
+    @Test
+    fun hiddenPromptInLockedDivIsDroppedFromBody() {
+        // 锁定提示的另一种排版是 div.locked：同样只用来置标志位，正文里不保留
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+              <div class="comiis_a">
+                正文内容
+                <div class="locked">username123，如果您要查看本帖隐藏内容请回复</div>
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertTrue(post.hasHiddenContent)
+        assertTrue(!post.contentHtml.contains("username123"))
+        assertTrue(post.contentHtml.contains("正文内容"))
+    }
+
+    @Test
+    fun hiddenPromptOnReplyFloorKeepsBodyText() {
+        // 非首帖不判定锁定（回复没有「回复可见」一说），提示照旧留在正文里
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid2">
+              <div class="comiis_postli_top"></div>
+              <div class="comiis_a">
+                <div class="locked">username123，如果您要查看本帖隐藏内容请回复</div>谢谢分享
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertTrue(!post.hasHiddenContent)
+        assertTrue(post.contentHtml.contains("username123"))
+        assertTrue(post.contentHtml.contains("谢谢分享"))
+    }
+
+    @Test
+    fun unlockedHiddenContentIsNotTreatedAsLockedPrompt() {
+        // 已解锁的隐藏内容容器里带 h2.f_a 标签，内容得留在正文里渲染成卡片；
+        // 否则会被当成「请回复」提示整块摘掉，明明已解锁反而什么都不剩
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+              <div class="comiis_a">
+                正文内容
+                <div class="comiis_quote bg_h f_c"><h2 class="f_a">本帖隐藏的内容: </h2>https://github.com/aaazhouaa/MTF</div>
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertTrue(!post.hasHiddenContent)
+        assertTrue(post.contentHtml.contains("h2"))
+        assertTrue(post.contentHtml.contains("https://github.com/aaazhouaa/MTF"))
+    }
+
+    @Test
+    fun plainQuoteWithoutPidStillParses() {
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid11910144">
+              <div class="comiis_postli_top b_t"></div>
+              <div class="comiis_a">
+                <div class="comiis_quote bg_h b_dashed f_c"><blockquote><font size="2">回复</font> <font color="#999999">环流泥猫 发表于 5 秒前</font><br />
+                不是，怎么还有我的事。</blockquote></div><br />
+                你住论坛了，随处可见都是你<img src="https://cdn.binmt.cc/static/image/smiley/doge/7.png" smilieid="1359" border="0" alt="" />
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertEquals("环流泥猫", post.quote?.author)
+        assertEquals("不是，怎么还有我的事。", post.quote?.text)
+        assertNull(post.quote?.pid)
+        assertTrue(post.contentHtml.contains("你住论坛了"))
+    }
+
+    @Test
+    fun quoteKeepsAbsoluteDateButDropsRelativeTime() {
+        val absolute = ForumParser.parseThreadPage(
+            """<html><head><title>帖子</title></head><body>
+                <div class="comiis_postli" id="pid1"><div class="comiis_a">
+                <div class="comiis_quote"><blockquote><font color="#999999">秋枫Mod 发表于 2026-10-5 21:18 来自 河南]</font><br />
+                拿走不谢</blockquote></div></div></div></body></html>""",
+            1,
+        )
+        // 绝对日期是被引楼层的真实时间，保留
+        assertEquals("2026-10-5 21:18", absolute.posts.single().quote?.time)
+        val relative = ForumParser.parseThreadPage(
+            """<html><head><title>帖子</title></head><body>
+                <div class="comiis_postli" id="pid1"><div class="comiis_a">
+                <div class="comiis_quote"><blockquote><font color="#999999">秋枫Mod 发表于 19 秒前 来自 安徽]</font><br />
+                拿走不谢</blockquote></div></div></div></body></html>""",
+            1,
+        )
+        // 相对时间是引用那一刻的快照，隔天回看是错的，丢弃（引用卡不显示时间）
+        assertNull(relative.posts.single().quote?.time)
+    }
+
+    @Test
+    fun cardFieldsParsedFromGuideList() {
+        // 真实「导读-最新发表」卡片：版块名在 comiis_xznalist_bk，封面取 comiis_loadimages，
+        // 底部三数为 点赞/回复/浏览。
+        val html = """
+            <div class="comiis_forumlist comiis_xznlist mb0 cl"><ul>
+            <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+              <div class="forumlist_li_top cl">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&uid=159705&do=profile" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=159705"></a>
+                <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=159705&do=profile" class="top_user">randian</a><span class="top_lev bg_a f_f">Lv.2</span></h2>
+                <div class="forumlist_li_time"><span class="f_d">4 分钟前</span></div>
+              </div>
+              <div class="mmlist_li_box cl">
+                <h2><a href="https://bbs.binmt.cc/thread-174077-1-1.html">DsPlayer-0.8.5 (道长壳)</a></h2>
+                <div class="list_body cl"><a href="https://bbs.binmt.cc/thread-174077-1-1.html" class="f_b">只分享可用精品资源 ...</a></div>
+                <div class="comiis_pyqlist_imgs comiis_pyqlist_img3p"><ul><li><img src="none.png" comiis_loadimages="https://cdn.binmt.cc/forum.php?mod=image&aid=377738"></li></ul></div>
+              </div>
+              <div class="comiis_xznalist_bk cl"><a href="https://bbs.binmt.cc/forum-44-1.html" class="bg_g f_0"><i class="comiis_font">x</i>综合交流</a></div>
+              <div class="comiis_xznalist_bottom cl"><ul class="cl">
+                <li><a href="javascript:;"><span class="comiis_tm">1</span></a></li>
+                <li><a href="https://bbs.binmt.cc/thread-174077-1-1.html"><span class="comiis_tm">6</span></a></li>
+                <li><span class="comiis_tm">77</span></li>
+              </ul></div>
+            </li>
+            </ul></div>
+        """.trimIndent()
+        val thread = ForumParser.parseForumPage(html, 1).threads.single()
+        assertEquals("174077", thread.tid)
+        assertEquals("randian", thread.authorName)
+        assertEquals("综合交流", thread.forumName)
+        assertEquals("1", thread.likeCount)
+        assertEquals("6", thread.replyCount)
+        assertEquals("77", thread.viewCount)
+        assertEquals(listOf("https://cdn.binmt.cc/forum.php?mod=image&aid=377738"), thread.imageUrls)
+    }
+
+    @Test
+    fun portalFeedParsedFromXmlCdata() {
+        // 「热门」tab 的列表来自 comiis_app_portal 插件：响应是 XML，帖子列表整段在 CDATA 里。
+        // 与 guide 列表的差别有三处：统计容器是 comiis_znalist_bottom、三个数是「291阅读」
+        // 这样的裸文本且顺序反转为 阅读/评论/赞、版块名不在 comiis_xznalist_bk 而挂在时间行。
+        val fragment = """
+            <div class="comiis_forumlist mb0 cl"><ul>
+            <li class="forumlist_li comiis_znalist bg_f b_t b_b comiis_list_readimgs">
+              <div class="forumlist_li_top cl">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&uid=108469&do=profile" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=108469"></a>
+                <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=108469&do=profile" class="top_user">白珩</a><span class="top_lev bg_a f_f">Lv.3</span></h2>
+                <div class="forumlist_li_time"><span class="f_d">昨天&nbsp;21:17</span><a href="https://bbs.binmt.cc/forum-42-1.html" class="f_d">&nbsp来自 编程开发</a></div>
+              </div>
+              <div class="mmlist_li_box cl">
+                <h2><a href="https://bbs.binmt.cc/thread-174324-1-1.html">水印工具 2.0</a></h2>
+                <div class="list_body cl"><a href="https://bbs.binmt.cc/thread-174324-1-1.html" class="f_b">核心功能特色 ...</a></div>
+              </div>
+              <div class="comiis_znalist_bottom b_t cl"><ul class="cl">
+                <li class="f_c"><i class="comiis_font">i</i>291阅读</li>
+                <li class="f_c kmc"><a href="https://bbs.binmt.cc/thread-174324-1-1.html" class="b_l b_r"><i class="comiis_font">i</i>53评论</a></li>
+                <li id="comiis_listzhan_174324"><a href="https://bbs.binmt.cc/forum.php?mod=misc&action=recommend&do=add&tid=174324" tid="174324" class="comiis_recommend_addkey f_c"><i class="comiis_font">i</i><span class="num-all_174324">3</span>赞</a></li>
+              </ul></div>
+            </li>
+            </ul></div>
+        """.trimIndent()
+        val threads = ForumParser.parsePortalFeed("<root><![CDATA[$fragment]]></root>")
+        val thread = threads.single()
+        assertEquals("174324", thread.tid)
+        assertEquals("白珩", thread.authorName)
+        assertEquals("Lv.3", thread.level)
+        assertEquals("编程开发", thread.forumName)
+        assertEquals("291", thread.viewCount)
+        assertEquals("53", thread.replyCount)
+        assertEquals("3", thread.likeCount)
+        assertEquals("核心功能特色 ...", thread.excerpt)
+    }
+
+    @Test
+    fun portalFeedWithoutCdataYieldsNothing() {
+        assertTrue(ForumParser.parsePortalFeed("<root></root>").isEmpty())
+    }
+
+    @Test
+    fun cardImagesCollectedInOrderAndPlaceholdersDropped() {
+        // 多图卡片：站点把每张图放在 comiis_pyqlist_imgs 的一个 li 里，真实地址在
+        // comiis_loadimages（src 是懒加载占位 none.png），取图要保序。
+        val html = """
+            <div class="comiis_forumlist comiis_xznlist mb0 cl"><ul>
+            <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+              <div class="forumlist_li_top cl">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=1"></a>
+                <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="top_user">someone</a></h2>
+                <div class="forumlist_li_time"><span class="f_d">1 小时前</span></div>
+              </div>
+              <div class="mmlist_li_box cl">
+                <h2><a href="https://bbs.binmt.cc/thread-200001-1-1.html">多图帖</a></h2>
+                <div class="comiis_pyqlist_imgs comiis_pyqlist_img3p"><ul>
+                  <li><img src="none.png" comiis_loadimages="https://cdn.binmt.cc/forum.php?mod=image&aid=1"></li>
+                  <li><img src="none.png" comiis_loadimages="https://cdn.binmt.cc/forum.php?mod=image&aid=2"></li>
+                  <li><img src="none.png" comiis_loadimages="https://cdn.binmt.cc/forum.php?mod=image&aid=3"></li>
+                </ul></div>
+              </div>
+              <div class="comiis_xznalist_bottom cl"><ul class="cl">
+                <li><span class="comiis_tm">2</span></li>
+                <li><span class="comiis_tm">5</span></li>
+                <li><span class="comiis_tm">88</span></li>
+              </ul></div>
+            </li>
+            </ul></div>
+        """.trimIndent()
+        val thread = ForumParser.parseForumPage(html, 1).threads.single()
+        assertEquals(
+            listOf(
+                "https://cdn.binmt.cc/forum.php?mod=image&aid=1",
+                "https://cdn.binmt.cc/forum.php?mod=image&aid=2",
+                "https://cdn.binmt.cc/forum.php?mod=image&aid=3",
+            ),
+            thread.imageUrls,
+        )
+    }
+
+    @Test
+    fun cardLazyPlaceholderIsNotTreatedAsImage() {
+        // 没有真实附件图时，src 只有 none.png 占位，不能当成配图（否则卡片第一格是站点素材）
+        val html = """
+            <div class="comiis_forumlist comiis_xznlist mb0 cl"><ul>
+            <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+              <div class="forumlist_li_top cl">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=1"></a>
+                <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="top_user">someone</a></h2>
+              </div>
+              <div class="mmlist_li_box cl">
+                <h2><a href="https://bbs.binmt.cc/thread-300001-1-1.html">无图帖</a></h2>
+                <div class="comiis_pyqlist_imgs comiis_pyqlist_img3p"><ul>
+                  <li><img src="https://bbs.binmt.cc/template/comiis_app/pic/none.png"></li>
+                </ul></div>
+              </div>
+              <div class="comiis_xznalist_bottom cl"><ul class="cl">
+                <li><span class="comiis_tm">0</span></li>
+                <li><span class="comiis_tm">3</span></li>
+                <li><span class="comiis_tm">12</span></li>
+              </ul></div>
+            </li>
+            </ul></div>
+        """.trimIndent()
+        val thread = ForumParser.parseForumPage(html, 1).threads.single()
+        assertTrue(thread.imageUrls.isEmpty())
+    }
+
+    @Test
+    fun cardTitleDropsInvisibleIconFontChar() {
+        // 站点在标题锚点里塞图标字体字符：<span class="bg_a f_f"> 装着私用区 U+E64E。
+        // Jsoup 的 text() 会把子元素文本拼进标题，trim() 去不掉；它在 Compose 里占一个
+        // 字符宽度，标题就比同一张卡的正文多缩进。详情页标题取 document.title()，不受影响。
+        val html = """
+            <div class="comiis_forumlist comiis_xznlist mb0 cl"><ul>
+            <li class="forumlist_li comiis_znalist bg_f b_t b_b">
+              <div class="forumlist_li_top cl">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="wblist_tximg"><img class="top_tximg" src="https://avatar.mt2.cn/avatar.php?uid=1"></a>
+                <h2><a href="https://bbs.binmt.cc/home.php?mod=space&uid=1" class="top_user">someone</a></h2>
+                <div class="forumlist_li_time"><span class="f_d">1 小时前</span></div>
+              </div>
+              <div class="mmlist_li_box cl">
+                <h2><a href="https://bbs.binmt.cc/thread-400001-1-1.html">
+                  <span class="bg_a f_f">{{ICON}}</span>
+                  MT论坛1.08</a></h2>
+                <div class="list_body cl"><a href="https://bbs.binmt.cc/thread-400001-1-1.html" class="f_b">
+                  <span class="bg_a f_f">{{ICON}}</span>
+                  【新增】留言板功能</a></div>
+              </div>
+              <div class="comiis_xznalist_bottom cl"><ul class="cl">
+                <li><span class="comiis_tm">1</span></li>
+                <li><span class="comiis_tm">2</span></li>
+                <li><span class="comiis_tm">3</span></li>
+              </ul></div>
+            </li>
+            </ul></div>
+        """.trimIndent().replace("{{ICON}}", ICON_FONT_CHAR)
+        val thread = ForumParser.parseForumPage(html, 1).threads.single()
+        assertEquals("400001", thread.tid)
+        assertEquals("MT论坛1.08", thread.subject)
+        assertEquals("【新增】留言板功能", thread.excerpt)
+    }
+
+    @Test
+    fun editedMarkerKeepsOnlyTime() {
+        val html = """
+            <html><body>
+            <div class="comiis_postli" id="pid11910604">
+              <div class="comiis_a">帖子正文
+                本帖最后由 username123 于 2026-10-5 12:39 编辑
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        // 编辑标记只保留「时间 编辑」同行小字
+        assertEquals("2026-10-5 12:39 编辑", post.editedText)
+        assertTrue(post.contentHtml.contains("帖子正文"))
+        assertTrue(!post.contentHtml.contains("编辑"))
+    }
+
+    @Test
+    fun userSpaceStatsParsed() {
+        // 结构取自站点真实的个人中心页（home.php?mod=space&uid=X&do=profile&mobile=2）：
+        // kmlevs 是等级、kmlev 是用户组；五项统计是 «span: 帖子 94»，积分/金币是
+        // «span: 1626»积分，在线时长在第二张 .comiis_space_profile 的 .profile_rs 里
+        val html = """
+            <html><body>
+            <script>var discuz_uid = '156549';</script>
+            <div class="comiis_space_tx comiis_space_txv1">
+              <div class="comiis_space_flw"><a id="followmod" href="home.php?mod=spacecp&amp;ac=follow&amp;op=add&amp;fuid=156549" class="bg_a f_f dialog"><i class="comiis_font"></i>关注</a></div>
+              <div class="user_img"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=156549&amp;size=middle"></div>
+              <h2 class="fyy">feelingboy11</h2>
+              <p><span class="z f14 fyy">516 人气</span><span class="z comiis_tm kmx fyy">|</span><span class="z f14 fyy">0 关注</span><span class="z comiis_tm kmx fyy">|</span><span class="z f14 fyy">57 粉丝</span></p>
+              <p><span class="kmlevs bg_0 kmlv f_f">Lv.4</span><span class="kmlev f_f">高中生</span></p>
+            </div>
+            <div class="comiis_space_profileico bg_f b_t b_b mt10 cl"><ul>
+              <li><a href="home.php?mod=space&amp;uid=156549&amp;do=thread&amp;view=me&amp;type=thread"><i class="comiis_font"></i><span>帖子 94</span></a></li>
+              <li><a href="home.php?mod=space&amp;uid=156549&amp;do=thread&amp;view=me&amp;type=reply"><i class="comiis_font"></i><span>回复 165</span></a></li>
+              <li><a href="javascript:;"><i class="comiis_font"></i><span>好友 3</span></a></li>
+              <li><a href="home.php?mod=follow&amp;do=follower&amp;uid=156549"><i class="comiis_font"></i><span>粉丝 57</span></a></li>
+              <li><a href="javascript:;"><i class="comiis_font"></i><span>人气 516</span></a></li>
+            </ul></div>
+            <div class="comiis_space_profilejf bg_f b_t b_b mt10 cl"><ul>
+              <li class="b_t b_r"><span class="f_0">1626</span>积分</li>
+              <li class="b_t b_r"><span class="f_0">7 </span>好评</li>
+              <li class="b_t b_r"><span class="f_0">479</span>金币</li>
+              <li class="b_t b_r"><span class="f_0">100 </span>信誉</li>
+            </ul></div>
+            <div class="comiis_space_profile bg_f b_t b_b mt10 cl"><ul>
+              <li class="b_t"><a href="home.php?mod=spacecp&amp;ac=usergroup" class="profile_a"><div class="profile_r"><span class="kmlev bg_0 f_f f12">Lv.4</span><span class="f14">高中生</span></div><span>用户组</span></a></li>
+              <li class="b_t"><a href="home.php?mod=spacecp&amp;ac=profile&amp;op=info" class="profile_a"><div class="profile_rs">添加签名</div><span>个人签名</span></a></li>
+            </ul></div>
+            <div class="comiis_space_profile bg_f b_t b_b mt10 cl"><ul>
+              <li class="b_t"><div class="profile_rs f_c">156549</div><span>用户ID</span></li>
+              <li class="b_t"><div class="profile_rs f_c">广东省</div><span>出生地</span></li>
+              <li class="b_t"><div class="profile_rs f_c">207 小时</div><span>在线时间</span></li>
+              <li class="b_t"><div class="profile_rs f_c">2026-5-4 23:04</div><span>注册时间</span></li>
+              <li class="b_t"><div class="profile_rs f_c">2026-10-8 00:40</div><span>最后访问</span></li>
+            </ul></div>
+            </body></html>
+        """.trimIndent()
+        val p = ForumParser.parseUserProfile(html)
+        assertEquals("156549", p.uid)
+        assertEquals("feelingboy11", p.name)
+        assertEquals("https://avatar.mt2.cn/uc_server/avatar.php?uid=156549&size=middle", p.avatarUrl)
+        assertEquals("Lv.4", p.level)
+        assertEquals("高中生", p.groupName)
+        assertEquals(94, p.threads)
+        assertEquals(165, p.posts)
+        assertEquals(3, p.friends)
+        assertEquals(0, p.following)
+        assertEquals(57, p.followers)
+        assertEquals(1626, p.credits)
+        assertEquals(479, p.gold)
+        assertEquals("207 小时", p.onlineTime)
+    }
+
+    @Test
+    fun userNameDropsLevelGluedIntoHeading() {
+        // 个别模板把等级头衔嵌在 h2 里，整取 text 会粘成「昵称Lv.4」
+        val html = """
+            <html><body>
+            <script>var discuz_uid = '159705';</script>
+            <div class="comiis_space_tx">
+              <div class="user_img"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=159705&size=middle"></div>
+              <h2>randian<span class="kmlevs">Lv.4</span></h2>
+            </div>
+            </body></html>
+        """.trimIndent()
+        val p = ForumParser.parseUserProfile(html)
+        assertEquals("randian", p.name)
+        assertEquals("Lv.4", p.level)
+    }
+
+    @Test
+    fun likeAndFavoriteCountsParsed() {
+        // 移动版详情页底部互动行带真实计数：点赞 em.comiis_recommend_num、收藏 span.comiis_favorite_a_num
+        val html = """
+            <html><head><title>测试帖 - MT论坛</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174032-1-1.html"></head>
+            <body>
+              <div class="comiis_postli comiis_postli_topv1" id="pid11910108">
+                <div class="comiis_a">正文</div>
+              </div>
+              <div class="comiis_recommend_list_a">
+                <a href="javascript:;"><i class="comiis_font">x</i> <em class="comiis_recommend_num">3</em>赞</a>
+              </div>
+              <li><a href="javascript:;" id="comiis_favorite_a">
+                <span class="bg_del f_f comiis_kmvnum comiis_favorite_a_num">4</span></a></li>
+            </body></html>
+        """.trimIndent()
+        val page = ForumParser.parseThreadPage(html, 1)
+        assertEquals(3, page.likeCount)
+        assertEquals(4, page.favoriteCount)
+    }
+
+    @Test
+    fun attachmentImagesOutsideBodyAreMerged() {
+        // 站点把附件图从正文里抽出，放进与 comiis_a 平级的 ul.comiis_img_list（单张为 comiis_img_one），
+        // 只取 comiis_a 会丢图。首帖(view_one)、评论(view_all)与楼中楼子回复是同一套楼层结构，
+        // 都经 parsePost，三处都必须取到图。
+        val html = """
+            <html><head><title>图帖 - MT论坛</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174088-1-1.html"></head>
+            <body><div class="comiis_postlist">
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+              <div class="comiis_message view_one"><div class="comiis_messages comiis_aimg_show cl">
+                <div class="comiis_a comiis_message_table cl">首帖正文</div>
+                <ul class="comiis_img_list cl">
+                  <li><span><img src="https://oos.binmt.cc/a.jpg" comiis_loadimages="https://oos.binmt.cc/a.jpg"></span></li>
+                  <li><span><img src="https://oos.binmt.cc/b.jpg" comiis_loadimages="https://oos.binmt.cc/b.jpg"></span></li>
+                </ul>
+              </div></div>
+            </div>
+            <div class="comiis_postli" id="pid2">
+              <div class="comiis_postli_top"></div>
+              <div class="comiis_message view_all"><div class="comiis_messages cl">
+                <div class="comiis_a comiis_message_table cl">楼层正文</div>
+                <div class="comiis_img_one"><img src="https://oos.binmt.cc/c.jpg" comiis_loadimages="https://oos.binmt.cc/c.jpg"></div>
+              </div></div>
+            </div>
+            </div></body></html>
+        """.trimIndent()
+        val page = ForumParser.parseThreadPage(html, 1)
+        val op = page.posts[0]
+        assertTrue(op.contentHtml.contains("首帖正文"))
+        assertTrue(op.contentHtml.contains("a.jpg"))
+        assertTrue(op.contentHtml.contains("b.jpg"))
+        // 图文相对顺序保持：正文在前、附件图列表在后
+        assertTrue(op.contentHtml.indexOf("首帖正文") < op.contentHtml.indexOf("a.jpg"))
+        val reply = page.posts[1]
+        assertTrue(reply.contentHtml.contains("楼层正文"))
+        assertTrue(reply.contentHtml.contains("c.jpg"))
+    }
+
+    @Test
+    fun parsesFollowStateFromThreadPage() {
+        // 站点用关注控件的 op 参数区分关注态；退出重进要靠它恢复「已关注」
+        fun threadWithFollowLink(href: String, text: String) = """
+            <html><head><title>关注态 - MT论坛</title>
+            <link rel="canonical" href="https://bbs.binmt.cc/thread-174050-1-1.html"></head>
+            <body>
+              <script>var replyreload, tid = '174050', authorid = '156549', formhash = 'b6a540bd';</script>
+              <div class="comiis_postlist">
+                <div class="comiis_postli" id="pid1">
+                  <div class="comiis_postli_top comiis_postli_topv1"></div>
+                  <div class="comiis_message view_one"><div class="comiis_a">正文</div></div>
+                </div>
+              </div>
+              <a href="$href" class="follow_btn">$text</a>
+            </body></html>
+        """.trimIndent()
+
+        val notFollowing = ForumParser.parseThreadPage(
+            threadWithFollowLink("home.php?mod=spacecp&ac=follow&op=add&fuid=156549", "关注"),
+            1,
+        )
+        assertTrue(notFollowing.followingStateKnown)
+        assertTrue(!notFollowing.isFollowingOp)
+
+        val following = ForumParser.parseThreadPage(
+            threadWithFollowLink("home.php?mod=spacecp&ac=follow&op=del&fuid=156549", "已关注"),
+            1,
+        )
+        assertTrue(following.followingStateKnown)
+        assertTrue(following.isFollowingOp)
+
+        // 没有关注控件（未登录/站点改版）时状态未知，界面应回落到本地记录
+        val unknown = ForumParser.parseThreadPage(threadHtml, 1)
+        assertTrue(!unknown.followingStateKnown)
+    }
+
+    @Test
+    fun noticesParsedFromNoticesBox() {
+        // 结构取自站点真实的提醒页（do=notice&view=mypost）：容器 .comiis_notices_box，
+        // 正文在 .ntc_body，时间在 h2，主题链接是 redirect&goto=findpost&ptid=TID
+        val html = """
+            <html><body>
+            <a href="member.php?mod=logging&amp;action=logout&amp;formhash=abc">退出</a>
+            <div class="comiis_notices_box">
+              <div class="comiis_notice_list b_t mt12">
+                <ul>
+                  <li class="b_b bg_f cl">
+                    <a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=151212&amp;do=profile" class="notice_img"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=151212&amp;size=middle"></a>
+                    <div class="ntc_body"><a href="https://bbs.binmt.cc/space-uid-151212.html">rsuyeug</a> 回复了您的帖子
+                      <a href="https://bbs.binmt.cc/forum.php?mod=redirect&amp;goto=findpost&amp;ptid=174032&amp;pid=11921862">(停更)MT论坛app(液态玻璃)</a> &nbsp;
+                      <a href="https://bbs.binmt.cc/forum.php?mod=redirect&amp;goto=findpost&amp;pid=11921862&amp;ptid=174032" class="lit">查看</a></div>
+                    <h2 class="f_d"><a class="dialog y" href="home.php?mod=spacecp&amp;ac=common&amp;op=ignore">忽略</a> 昨天 15:22</h2>
+                  </li>
+                  <li class="b_b bg_f cl">
+                    <a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=151213&amp;do=profile" class="notice_img"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=151213&amp;size=middle"></a>
+                    <div class="ntc_body"><a href="https://bbs.binmt.cc/space-uid-151213.html">Kdian</a> 回复了您的帖子
+                      <a href="https://bbs.binmt.cc/forum.php?mod=redirect&amp;goto=findpost&amp;ptid=174032&amp;pid=11921863">(停更)MT论坛app(液态玻璃)</a></div>
+                    <h2 class="f_d">昨天 14:46</h2>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            </body></html>
+        """.trimIndent()
+        val notices = ForumParser.parseNotices(html)
+        assertTrue(!notices.loggedOut)
+        assertEquals(2, notices.notices.size)
+        val first = notices.notices[0]
+        assertEquals("174032", first.tid)
+        assertEquals("昨天 15:22", first.timeText)
+        // 长标题不再截断，交给 UI 单行省略号；正文与「查看」都不受污染
+        assertTrue(first.text.contains("rsuyeug 回复了您的帖子"))
+        assertTrue(first.text.contains("(停更)MT论坛app(液态玻璃)"))
+        assertTrue(!first.text.contains("…"))
+        assertTrue(!first.text.contains("查看"))
+        assertTrue(!first.text.contains("忽略"))
+        // 互动类提醒带头像链接：a.notice_img 的 img.src 是头像，href 里带 uid（点头像进个人主页）
+        assertEquals("https://avatar.mt2.cn/uc_server/avatar.php?uid=151212&size=middle", first.avatarUrl)
+        assertEquals("151212", first.uid)
+    }
+
+    @Test
+    fun noticeTitleKeptWhenShort() {
+        // 短标题原样保留，解析层不做任何截断
+        val html = """
+            <html><body>
+            <div class="comiis_notices_box"><div class="comiis_notice_list"><ul>
+              <li class="b_b bg_f cl">
+                <div class="ntc_body"><a href="space-uid-1.html">someone</a> 回复了您的帖子
+                  <a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=1&amp;pid=2">短标题</a></div>
+                <h2 class="f_d">今天 10:00</h2>
+              </li>
+            </ul></div></div>
+            </body></html>
+        """.trimIndent()
+        val notice = ForumParser.parseNotices(html).notices.single()
+        assertTrue(notice.text.contains("短标题"))
+        assertTrue(!notice.text.contains("…"))
+        // 没有 a_note_id 时退回 tid，保证 key 仍稳定
+        assertEquals("1", notice.id)
+    }
+
+    @Test
+    fun noticeTimeKeepsNbspSeparatedRelativeTimeAndClock() {
+        // 站点时间文本里用的是 &nbsp;（Jsoup 转成不换行空格），正则 \s 匹配不到它；
+        // 归到普通空格后，「2 小时前」整段不落空、「昨天 20:28」不丢钟点
+        val html = """
+            <html><body>
+            <div class="comiis_notices_box"><div class="comiis_notice_list"><ul>
+              <li class="b_b bg_f cl">
+                <div class="ntc_body"><a href="space-uid-1.html">someone</a> 回复了您的帖子
+                  <a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=1&amp;pid=2">标题</a></div>
+                <h2 class="f_d"><a id="a_note_100" class="dialog">屏蔽</a>2&nbsp;小时前</h2>
+              </li>
+              <li class="b_b bg_f cl">
+                <div class="ntc_body"><a href="space-uid-2.html">someone</a> 回复了您的帖子
+                  <a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=1&amp;pid=3">标题</a></div>
+                <h2 class="f_d">昨天&nbsp;20:28</h2>
+              </li>
+            </ul></div></div>
+            </body></html>
+        """.trimIndent()
+        val notices = ForumParser.parseNotices(html).notices
+        assertEquals("2 小时前", notices[0].timeText)
+        assertEquals("昨天 20:28", notices[1].timeText)
+    }
+
+    @Test
+    fun noticesCategoryMenuIsNotTreatedAsNotice() {
+        // 默认页（不带 view）只有类别菜单，没有任何提醒内容
+        val html = """
+            <html><body>
+            <div class="comiis_userlist bg_f cl"><ul>
+              <li class="b_b"><a href="home.php?mod=space&amp;do=pm" class="kmdbt">我的消息</a></li>
+              <li class="b_b mypost"><a href="home.php?mod=space&amp;do=notice&amp;view=mypost" class="kmdbt">我的帖子</a></li>
+            </ul></div>
+            </body></html>
+        """.trimIndent()
+        val notices = ForumParser.parseNotices(html)
+        assertTrue(!notices.loggedOut)
+        assertTrue(notices.notices.isEmpty())
+    }
+
+    @Test
+    fun noticeTotalPagesReadFromPager() {
+        // 站点分页器 div.comiis_page：页码在 select#dumppage 的 option 上（真实结构）
+        val withOptions = """
+            <html><body>
+            <div class="comiis_notices_box"><div class="comiis_notice_list"><ul>
+              <li class="b_b bg_f cl">
+                <div class="ntc_body"><a href="space-uid-1.html">someone</a> 回复了您的帖子
+                  <a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=1&amp;pid=2">短标题</a></div>
+                <h2 class="f_d">今天 10:00</h2>
+              </li>
+            </ul></div></div>
+            <div class="cl"><div class="comiis_page bg_f">
+              <a href="javascript:;" class="bg_f b_ok f_d">上一页</a>
+              <a id="select_a" class="bg_f b_ok"><select id="dumppage">
+                <option value="1" selected="">第1页</option>
+                <option value="2">第2页</option>
+                <option value="3">第3页</option>
+              </select>第 1 页</a>
+              <a href="home.php?mod=space&amp;do=notice&amp;view=mypost&amp;page=2" class="bg_f b_ok">下一页</a>
+            </div></div>
+            </body></html>
+        """.trimIndent()
+        assertEquals(3, ForumParser.parseNotices(withOptions).totalPages)
+
+        // 没有 select 时退到「下一页」链接带的 page 参数
+        val onlyNextLink = withOptions.replace(Regex("""<select id="dumppage">[\s\S]*?</select>"""), "")
+        assertEquals(2, ForumParser.parseNotices(onlyNextLink).totalPages)
+
+        // 连分页器都没有（单页）记为 1 页
+        val noPager = """
+            <html><body>
+            <div class="comiis_notices_box"><div class="comiis_notice_list"><ul>
+              <li class="b_b bg_f cl">
+                <div class="ntc_body"><a href="space-uid-1.html">someone</a> 回复了您的帖子
+                  <a href="forum.php?mod=redirect&amp;goto=findpost&amp;ptid=1&amp;pid=2">短标题</a></div>
+                <h2 class="f_d">今天 10:00</h2>
+              </li>
+            </ul></div></div>
+            </body></html>
+        """.trimIndent()
+        assertEquals(1, ForumParser.parseNotices(noPager).totalPages)
+    }
+
+    @Test
+    fun userProfileSplitsNameFromLevelAndReadsNumbersByLabel() {
+        // 等级头衔是 h2 内的子元素，整取 text 会粘在昵称后；标签与数值分列两个节点
+        val html = """
+            <html><body>
+              <script>var discuz_uid = '156549';</script>
+              <div class="comiis_space_tx">
+                <div class="user_img"><img src="https://avatar.mt2.cn/a.png"></div>
+                <h2>ChenHao<span class="kmlevs">Lv.3</span><span class="kmlev">初中生</span></h2>
+              </div>
+              <div class="comiis_space_profileico">
+                <ul>
+                  <li><span>帖子</span><span>12</span></li>
+                  <li><span>回复</span><span>340</span></li>
+                  <li><span>好友</span><span>5</span></li>
+                  <li><span>关注</span><span>7</span></li>
+                  <li><span>粉丝</span><span>9</span></li>
+                </ul>
+              </div>
+              <div class="comiis_space_profilejf"><ul>
+                <li><span>积分</span><span>1024</span></li>
+                <li><span>威望</span><span>3</span></li>
+                <li><span>金币</span><span>88</span></li>
+              </ul></div>
+              <div class="comiis_space_profile"><ul>
+                <li>在线时间<span class="profile_rs">128 小时</span></li>
+              </ul></div>
+            </body></html>
+        """.trimIndent()
+        val profile = ForumParser.parseUserProfile(html)
+        assertTrue(profile.isLoggedIn)
+        assertEquals("ChenHao", profile.name)
+        assertEquals("Lv.3", profile.level)
+        assertEquals("初中生", profile.groupName)
+        assertEquals(12, profile.threads)
+        assertEquals(340, profile.posts)
+        assertEquals(5, profile.friends)
+        assertEquals(7, profile.following)
+        assertEquals(9, profile.followers)
+        assertEquals(1024, profile.credits)
+        assertEquals(88, profile.gold)
+        assertEquals("128 小时", profile.onlineTime)
+    }
+
+    @Test
+    fun `reply quote notice wraps author time and snippet in quote bbcode`() {
+        val html = """
+            <div class="comiis_a">
+              <p>第一行正文 &amp; 符号</p>
+              <p>第二行 &lt;b&gt;粗&lt;/b&gt; [#呵呵]</p>
+            </div>
+        """.trimIndent()
+        val notice = ForumParser.replyQuoteNotice("勇敢的心", "2026-10-9 23:16", html, "11935213", "174328")
+        assertEquals(
+            "[quote][size=2][url=forum.php?mod=redirect&goto=findpost&pid=11935213&ptid=174328]" +
+                "[color=#999999]勇敢的心 发表于 2026-10-9 23:16[/color][/url][/size]\n" +
+                "第一行正文 & 符号\n第二行 <b>粗</b>[/quote]",
+            notice,
+        )
+    }
+
+    @Test
+    fun `reply quote notice keeps raw entities for server side escaping`() {
+        val html = "<div class=\"comiis_a\"><p>a &amp; b &lt;tag&gt;</p></div>"
+        val notice = ForumParser.replyQuoteNotice("甲&乙", null, html, "1", "2")
+        // 服务端会对整块做一次 dhtmlspecialchars，客户端再转义就成了双转义
+        assertEquals(
+            "[quote][size=2][url=forum.php?mod=redirect&goto=findpost&pid=1&ptid=2]" +
+                "[color=#999999]甲&乙 发表于[/color][/url][/size]\na & b <tag>[/quote]",
+            notice,
+        )
+    }
+
+    @Test
+    fun `reply quote snippet keeps block breaks and truncates to site length`() {
+        val long = "字".repeat(120)
+        val html = "<div class=\"comiis_a\"><p>$long</p><p>尾部</p></div>"
+        val snippet = ForumParser.replyQuoteSnippet(html)
+        assertEquals("字".repeat(100) + " ...", snippet)
+    }
+
+    @Test
+    fun `reply quote snippet keeps only three lines like the site does`() {
+        val html = (1..5).joinToString("") { "<p>第$it 行</p>" }
+        assertEquals("第1 行\n第2 行\n第3 行", ForumParser.replyQuoteSnippet(html))
+    }
+
+    @Test
+    fun `reply quote snippet drops smiley codes and collapses blank blocks`() {
+        val html = """
+            <div class="comiis_a">
+              <p>&nbsp;</p>
+              <p>看看 [#哈哈]</p>
+              <p><img src="https://bbs.binmt.cc/x.png"></p>
+            </div>
+        """.trimIndent()
+        assertEquals("看看", ForumParser.replyQuoteSnippet(html))
+    }
+
+    @Test
+    fun `at users are parsed from the getatuser xml cdata`() {
+        val body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<root><![CDATA[user1, user2,user3]]></root>"
+        assertEquals(listOf("user1", "user2", "user3"), ForumParser.parseAtUsers(body))
+    }
+
+    @Test
+    fun `at users are empty when the account has no friend`() {
+        val body = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<root><![CDATA[]]></root>"
+        assertEquals(emptyList<String>(), ForumParser.parseAtUsers(body))
+    }
+
+    @Test
+    fun `at users ignore a challenge page response`() {
+        val body = "<html><script>var x = 1</script></html>"
+        assertEquals(emptyList<String>(), ForumParser.parseAtUsers(body))
+    }
+
+    @Test
+    fun `friend list keeps level and time but drops blacklist action link`() {
+        // 访客/足迹页：p.txt 里两行 font 是等级与访问时间，都是描述
+        val visitor = """
+            <html><body><div class="comiis_friend_boxs"><div class="bg_f b_b cl">
+            <div class="comiis_userlist01 cl"><li class="b_t">
+              <p class="ytit f_d"><a href="home.php?mod=spacecp&amp;ac=friend&amp;op=add&amp;uid=160471">加好友</a></p>
+              <a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=160471&amp;do=profile" class="list01_limg"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=160471&amp;size=middle"></a>
+              <p class="tit"><a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=160471&amp;do=profile">醉期</a></p>
+              <p class="txt"><font class="f_d">小学生</font> <font class="f_d">10月11日</font></p>
+            </li></div></div></div></body></html>
+        """.trimIndent()
+        val visitorItem = ForumParser.parseFriends(visitor, 1).users.single()
+        assertEquals("160471", visitorItem.uid)
+        assertEquals("醉期", visitorItem.username)
+        assertEquals("小学生 10月11日", visitorItem.description)
+
+        // 黑名单页：p.txt 里只有「解除黑名单」操作链接，不能当描述照抄
+        val blacklist = """
+            <html><body><div class="comiis_friend_boxs"><div class="bg_f b_b cl">
+            <div class="comiis_userlist01 cl"><li class="b_t">
+              <a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=156705&amp;do=profile" class="list01_limg"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=156705&amp;size=middle"></a>
+              <p class="tit"><a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=156705&amp;do=profile">nzyqw</a></p>
+              <p class="txt"><a href="home.php?mod=spacecp&amp;ac=friend&amp;op=blacklist&amp;subop=delete&amp;uid=156705&amp;start=" class="f_g">解除黑名单</a></p>
+            </li></div></div></div></body></html>
+        """.trimIndent()
+        val blacklistItem = ForumParser.parseFriends(blacklist, 1).users.single()
+        assertEquals("156705", blacklistItem.uid)
+        assertEquals(null, blacklistItem.description)
+    }
+
+    @Test
+    fun `friend request rows fall back to any li holding a profile link`() {
+        // 容器类名与模板不一致时，只要行内有用户资料链接就算一行
+        val html = """
+            <html><body><div class="some_other_box"><ul>
+              <li class="x_y">
+                <a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=99&amp;do=profile" class="list01_limg"><img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=99&amp;size=middle"></a>
+                <p class="tit"><a href="https://bbs.binmt.cc/home.php?mod=space&amp;uid=99&amp;do=profile">申请人</a></p>
+                <p class="txt">想加您为好友</p>
+              </li>
+            </ul></div></body></html>
+        """.trimIndent()
+        val items = ForumParser.parseFriendRequests(html, 1).requests
+        assertEquals(1, items.size)
+        assertEquals("99", items.single().uid)
+        assertEquals("申请人", items.single().username)
+    }
+
+    @Test
+    fun `parseCheckInStatus recognizes unsigned state and formhash`() {
+        val html = """
+            <form action="..."><input type="hidden" name="formhash" value="abcd1234" /></form>
+            <div class="comiis_btnbox b_b cl">
+            <a href="javascript:;" class="comiis_btn bg_c f_f" id="signresult" onclick="ajaxsign();">签到</a>
+            </div>
+        """.trimIndent()
+        val status = ForumParser.parseCheckInStatus(html)
+        assertEquals("abcd1234", status.formhash)
+        assertEquals(false, status.hasSigned)
+    }
+
+    @Test
+    fun `parseCheckInStatus recognizes signed state`() {
+        val html = """
+            <script>var formhash = 'abcd1234';</script>
+            <div class="comiis_btnbox b_b cl">
+            <a href="javascript:;" class="comiis_btn bg_b f_c">已签到</a>
+            </div>
+        """.trimIndent()
+        val status = ForumParser.parseCheckInStatus(html)
+        assertEquals("abcd1234", status.formhash)
+        assertEquals(true, status.hasSigned)
+    }
+
+    @Test
+    fun `parseCheckInResponse handles success cdata`() {
+        val resp = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<root><![CDATA[已签到]]></root>"
+        val result = ForumParser.parseCheckInResponse(resp)
+        assertEquals(true, result.success)
+        assertEquals("签到成功", result.message)
+
+        val respToday = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<root><![CDATA[今日已签]]></root>"
+        val resultToday = ForumParser.parseCheckInResponse(respToday)
+        assertEquals(true, resultToday.success)
+        assertEquals("今日已签到", resultToday.message)
+    }
+
+    @Test
+    fun `parseCheckInResponse handles error message`() {
+        val resp = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<root><![CDATA[您当前的访问请求当中含有非法字符]]></root>"
+        val result = ForumParser.parseCheckInResponse(resp)
+        assertEquals(false, result.success)
+        assertEquals("您当前的访问请求当中含有非法字符", result.message)
+    }
+
+    @Test
+    fun `parsePmMessages extracts conversation items from inajax receipt`() {
+        // 站点真实回执形状：XML 外壳 + CDATA 里同时装着两个 Tab 的导航与列表
+        val response = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root><![CDATA[<div style="height:40px;"><div class="comiis_scrollTop_box"><div class="comiis_topnv bg_f b_b">
+            <ul class="comiis_flex">
+            <li class="flex f_0"><em class="bg_0"></em><a href="https://bbs.binmt.cc/home.php?mod=space&amp;do=pm&amp;filter=privatepm" comiis_ajax=".comiis_pms_box">私人消息</a></li>
+            <li class="flex"><a href="https://bbs.binmt.cc/home.php?mod=space&amp;do=pm&amp;filter=announcepm">公共消息</a></li>
+            </ul>
+            </div></div></div><div class="comiis_pms_box">
+            <div class="comiis_pmlist mt10 bg_f b_t cl">
+            <ul>
+            <li>
+            <a href="home.php?mod=space&amp;do=pm&amp;subop=view&amp;touid=99999&amp;mobile=2">
+            <span class="kmnum">2</span>
+            <img src="https://avatar.mt2.cn/uc_server/avatar.php?uid=99999&amp;size=middle">
+            <h2><span>昨天 12:30</span>小明同学</h2>
+            <p>你好，请问有逆向插件的最新版吗？</p>
+            </a>
+            </li>
+            </ul>
+            </div>
+            </div>]]></root>
+        """.trimIndent()
+        val page = ForumParser.parsePmMessages(response)
+        assertEquals(false, page.loggedOut)
+        // Tab 导航也是带 do=pm 链接的 li，不能被当成会话行
+        assertEquals(1, page.messages.size)
+        val pm = page.messages[0]
+        assertEquals("99999", pm.touid)
+        assertEquals("小明同学", pm.username)
+        assertEquals("昨天 12:30", pm.timeText)
+        assertEquals("你好，请问有逆向插件的最新版吗？", pm.summary)
+        assertEquals(true, pm.unread)
+        assertEquals("https://avatar.mt2.cn/uc_server/avatar.php?uid=99999&size=middle", pm.avatarUrl)
+    }
+
+    @Test
+    fun `parsePmMessages reports logged out when receipt redirects to login`() {
+        val response = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root><![CDATA[<script>window.location.href = 'member.php?mod=logging&action=login';</script>
+            ]]></root>
+        """.trimIndent()
+        val page = ForumParser.parsePmMessages(response)
+        assertEquals(true, page.loggedOut)
+        assertEquals(0, page.messages.size)
+    }
+
+    @Test
+    fun `parsePmMessages returns empty list when no messages`() {
+        // 没有私信时站点仍回 tab 导航 + 空 ul，公共消息则换成 comiis_notip 提示
+        val response = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root><![CDATA[<div class="comiis_topnv bg_f b_b">
+            <ul class="comiis_flex">
+            <li class="flex f_0"><em class="bg_0"></em><a href="https://bbs.binmt.cc/home.php?mod=space&amp;do=pm&amp;filter=privatepm">私人消息</a></li>
+            </ul>
+            </div><div class="comiis_pms_box">
+            <div class="comiis_notip cl">
+            <i class="comiis_font f_e cl">&#xe613</i>                <span class="f_d">暂无系统消息</span>
+            </div>
+            </div>]]></root>
+        """.trimIndent()
+        val page = ForumParser.parsePmMessages(response)
+        assertEquals(false, page.loggedOut)
+        assertEquals(0, page.messages.size)
+    }
+
+    @Test
+    fun `parseChatConversation extracts messages correctly`() {
+        val html = """
+            <header class="header">
+                <span class="name">小野猫</span>
+            </header>
+            <input type="hidden" name="formhash" value="abc12345" />
+            <div class="msgbox">
+                <div class="friend_msg cl">
+                    <div class="avat z"><img src="https://avatar.mt2.cn/avatar1.jpg" /></div>
+                    <div class="dialog_green z">
+                        <div class="dialog_c"><div class="dialog_t">你好呀！最近在忙什么？</div></div>
+                        <div class="date">昨天 10:00</div>
+                    </div>
+                </div>
+                <div class="self_msg cl">
+                    <div class="avat y"><img src="https://avatar.mt2.cn/avatar2.jpg" /></div>
+                    <div class="dialog_white y">
+                        <div class="dialog_c"><div class="dialog_t">在写代码呢，哈哈</div></div>
+                        <div class="date">昨天 10:05</div>
+                    </div>
+                </div>
+            </div>
+        """.trimIndent()
+        val conv = ForumParser.parseChatConversation(html, "144405")
+        assertEquals("144405", conv.touid)
+        assertEquals("小野猫", conv.targetName)
+        assertEquals("abc12345", conv.formhash)
+        assertEquals(2, conv.messages.size)
+
+        val m1 = conv.messages[0]
+        assertEquals("你好呀！最近在忙什么？", m1.text)
+        assertEquals("昨天 10:00", m1.time)
+        assertEquals(false, m1.isSelf)
+        assertEquals("https://avatar.mt2.cn/avatar1.jpg", m1.avatarUrl)
+
+        val m2 = conv.messages[1]
+        assertEquals("在写代码呢，哈哈", m2.text)
+        assertEquals("昨天 10:05", m2.time)
+        assertEquals(true, m2.isSelf)
+        assertEquals("https://avatar.mt2.cn/avatar2.jpg", m2.avatarUrl)
+    }
+
+    @Test
+    fun `parseChatConversation handles comiis structure with smiley`() {
+        // 真实 comiis 私聊 DOM：self/friend 区分靠 comiis_self_msg/comiis_friend_msg，
+        // 头像在 img.msg_avt（气泡外），正文 .msg_mes，时间 .msg_time；正文里的表情是 <img>。
+        // 旧解析器会选中气泡节点、把表情图当头像、正文带时间，这里锁定新行为。
+        val html = """
+            <header class="header"><span class="name">小野猫</span></header>
+            <input type="hidden" name="formhash" value="abc12345" />
+            <div class="comiis_msgbox">
+                <div class="comiis_friend_msg cl">
+                    <a href="home.php?mod=space&amp;uid=1&amp;do=profile"><img class="msg_avt z" src="https://avatar.mt2.cn/friend.jpg" /></a>
+                    <div class="dialog_white z">
+                        <div class="msg_mes">你好<img src="https://bbs.binmt.cc/static/image/smiley/tb_1.png" /></div>
+                        <div class="msg_time f_d">下午&nbsp;17:58:29</div>
+                    </div>
+                </div>
+                <div class="comiis_self_msg cl">
+                    <a href="home.php?mod=space&amp;uid=2&amp;do=profile"><img class="msg_avt y" src="https://avatar.mt2.cn/me.jpg" /></a>
+                    <div class="dialog_green y">
+                        <div class="msg_mes">在呀<img src="https://bbs.binmt.cc/static/image/smiley/tb_2.png" /></div>
+                        <div class="msg_time f_d">下午&nbsp;17:59:00</div>
+                    </div>
+                </div>
+            </div>
+        """.trimIndent()
+        val conv = ForumParser.parseChatConversation(html, "144405")
+        assertEquals("小野猫", conv.targetName)
+        assertEquals(2, conv.messages.size)
+
+        val m1 = conv.messages[0]
+        assertEquals("你好", m1.text)
+        assertEquals("下午 17:58:29", m1.time)
+        assertEquals(false, m1.isSelf)
+        assertEquals("https://avatar.mt2.cn/friend.jpg", m1.avatarUrl)
+
+        val m2 = conv.messages[1]
+        assertEquals("在呀", m2.text)
+        assertEquals("下午 17:59:00", m2.time)
+        assertEquals(true, m2.isSelf)
+        assertEquals("https://avatar.mt2.cn/me.jpg", m2.avatarUrl)
+    }
+
+    @Test
+    fun `parseChatConversation keeps images in message html`() {
+        // 站点把私聊里的 [img] 外链渲染成真图：<img> 没有文本节点，只取 text() 会把图整张丢掉，
+        // 只剩图后的「测试」；纯贴图消息没有任何文本，更不能据此整条丢弃。
+        val html = """
+            <header class="header"><span class="name">小野猫</span></header>
+            <input type="hidden" name="formhash" value="abc12345" />
+            <div class="comiis_msgbox">
+                <div class="comiis_self_msg cl">
+                    <a href="home.php?mod=space&amp;uid=2&amp;do=profile"><img class="msg_avt y" src="https://avatar.mt2.cn/me.jpg" /></a>
+                    <div class="dialog_green y">
+                        <div class="msg_mes"><img src="https://cdn.binmt.cc/data/attachment/forum/a.jpg" border="0" alt="" /> 测试</div>
+                        <div class="msg_time f_d">上午&nbsp;02:43:24</div>
+                    </div>
+                </div>
+                <div class="comiis_self_msg cl">
+                    <a href="home.php?mod=space&amp;uid=2&amp;do=profile"><img class="msg_avt y" src="https://avatar.mt2.cn/me.jpg" /></a>
+                    <div class="dialog_green y">
+                        <div class="msg_mes"><img src="https://cdn.binmt.cc/data/attachment/forum/b.jpg" border="0" alt="" /></div>
+                        <div class="msg_time f_d">上午&nbsp;02:44:00</div>
+                    </div>
+                </div>
+            </div>
+        """.trimIndent()
+        val conv = ForumParser.parseChatConversation(html, "155639")
+        assertEquals(2, conv.messages.size)
+
+        val withText = conv.messages[0]
+        assertEquals("测试", withText.text)
+        assertEquals(
+            "https://cdn.binmt.cc/data/attachment/forum/a.jpg",
+            collectImageUrls(withText.contentHtml.orEmpty()).single(),
+        )
+
+        // 纯贴图消息：文本为空但图必须留下来
+        val imageOnly = conv.messages[1]
+        assertEquals("", imageOnly.text)
+        assertEquals(
+            "https://cdn.binmt.cc/data/attachment/forum/b.jpg",
+            collectImageUrls(imageOnly.contentHtml.orEmpty()).single(),
+        )
+    }
+
+    @Test
+    fun parseNewThreadInitWithTypesAndUploadCredentials() {
+        val html = """
+            <html>
+            <input type="hidden" name="formhash" id="formhash" value="1011f6f2" />
+            <input type="hidden" name="posttime" id="posttime" value="1791649255" />
+            <select name="typeid" id="typeid">
+                <option value="0">请选择</option>
+                <option value="59">求助问答</option>
+                <option value="58">已解决</option>
+            </select>
+            <script>
+            $.buildfileupload({
+                uploadurl:'misc.php?mod=swfupload&operation=upload&type=image&inajax=yes&infloat=yes&simple=2',
+                uploadformdata:{uid:"160113", hash:"adb645b4ee8a34cf44712acd3cd6162b"},
+                uploadinputname:'Filedata'
+            });
+            </script>
+            </html>
+        """.trimIndent()
+
+        val initData = ForumParser.parseNewThreadInit(html)
+        assertEquals("1011f6f2", initData.formhash)
+        assertEquals("1791649255", initData.posttime)
+        assertEquals("160113", initData.uploadUid)
+        assertEquals("adb645b4ee8a34cf44712acd3cd6162b", initData.uploadHash)
+        assertEquals(2, initData.types.size)
+        assertEquals("59", initData.types[0].id)
+        assertEquals("求助问答", initData.types[0].name)
+        assertEquals("58", initData.types[1].id)
+        assertEquals("已解决", initData.types[1].name)
+        assertNull(initData.permissionDenied)
+    }
+
+    @Test
+    fun parseNewThreadInitPermissionDenied() {
+        val html = """
+            <div class="comiis_bodybox">
+                <p>抱歉，您没有权限在该版块发帖</p>
+            </div>
+        """.trimIndent()
+        val initData = ForumParser.parseNewThreadInit(html)
+        assertEquals("抱歉，您没有权限在该版块发帖", initData.permissionDenied)
+    }
+
+    @Test
+    fun parseNewThreadResultSuccess() {
+        val inajaxXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root><![CDATA[<script type="text/javascript" reload="1">succeedhandle_postform('thread-12345-1-1.html', '非常感谢，您的主题已经发布');</script>]]></root>
+        """.trimIndent()
+        val res = ForumParser.parseNewThreadResult(inajaxXml)
+        assertTrue(res.success)
+        assertEquals("12345", res.tid)
+    }
+
+    @Test
+    fun parseNewThreadResultError() {
+        val errorXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <root><![CDATA[<script type="text/javascript" reload="1">errorhandle_postform('抱歉，您两次发表间隔少于 15 秒', {});</script>]]></root>
+        """.trimIndent()
+        val res = ForumParser.parseNewThreadResult(errorXml)
+        assertEquals(false, res.success)
+        assertEquals("抱歉，您两次发表间隔少于 15 秒", res.message)
+    }
+
+    @Test
+    fun editMessageKeepsQuoteBlockIntact() {
+        // 引用回复的 [quote] 块是楼层的一部分：编辑后仍是引用回复，摘掉它会变成独立评论
+        val html = """
+            <html><head><title>编辑</title></head><body>
+            <form id="postform">
+              <input type="hidden" name="formhash" value="abc123">
+              <textarea name="message">[quote][size=2][url=forum.php?mod=redirect&amp;goto=findpost&amp;pid=11947918&amp;ptid=174032][color=#999999]heidong4686 发表于 1 分钟前[/color][/url][/size]
+频道里面是你的账号被封了[/quote]
+我自己的正文</textarea>
+            </form>
+            </body></html>
+        """.trimIndent()
+        val data = ForumParser.parseEditPostInit(html)
+        assertTrue(data.message.startsWith("[quote]"))
+        assertTrue(data.message.endsWith("我自己的正文"))
+        assertTrue(data.message.contains("频道里面是你的账号被封了"))
+    }
+
+    @Test
+    fun editMessageKeepsTextWhenThereIsNoQuote() {
+        val html = """
+            <html><head><title>编辑</title></head><body>
+            <form id="postform">
+              <textarea name="message">第一段
+
+第二段</textarea>
+            </form>
+            </body></html>
+        """.trimIndent()
+        val data = ForumParser.parseEditPostInit(html)
+        assertEquals("第一段\n\n第二段", data.message)
+    }
+
+    @Test
+    fun stickyReplyIsFlaggedAndGetsNoFloorNumber() {
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid11947918">
+              <div class="comiis_postli_top b_t"></div>
+              <div class="comiis_a"><span class="f_d y"><span class="f_g">置顶</span> 来自#</span>被置顶的正文</div>
+            </div>
+            <div class="comiis_postli" id="pid11910144">
+              <div class="comiis_postli_top b_t"></div>
+              <div class="comiis_a"><span class="f_d y">2<sup>#</sup></span>普通回复</div>
+            </div>
+            </body></html>
+        """.trimIndent()
+        val posts = ForumParser.parseThreadPage(html, 1).posts
+        val sticky = posts.single { it.pid == "11947918" }
+        assertTrue(sticky.sticky)
+        // 置顶楼占首帖之后的第一个位置，即 1 楼；首条普通回复仍是沙发（2 楼）
+        assertEquals(1, sticky.floor)
+        assertEquals("1#", sticky.floorLabel)
+        val normal = posts.single { it.pid == "11910144" }
+        assertTrue(!normal.sticky)
+        assertEquals(2, normal.floor)
+    }
+
+    @Test
+    fun stickyReplyKeepsFirstNormalReplyAtSecondFloorWhenPageHasNoLabels() {
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+            </div>
+            <div class="comiis_postli" id="pid2">
+              <div class="comiis_postli_top b_t"></div>
+              <div class="comiis_a"><span class="f_d y"><span class="f_g">置顶</span> 来自#</span>被置顶的正文</div>
+            </div>
+            <div class="comiis_postli" id="pid3">
+              <div class="comiis_postli_top b_t"></div>
+              <div class="comiis_a"><div class="comiis_messages">沙发正文</div></div>
+            </div>
+            </body></html>
+        """.trimIndent()
+        val posts = ForumParser.parseThreadPage(html, 1).posts
+        assertEquals(1, posts.single { it.pid == "2" }.floor)
+        assertEquals(2, posts.single { it.pid == "3" }.floor)
+    }
+
+    @Test
+    fun chatConversationParsesOnlineFlag() {
+        val html = """
+            <html><head><title>聊天</title></head><body>
+            <div id="comiis_head"><div class="comiis_head f_top cl">
+              <div class="header_z"><a href="javascript:;">x</a></div>
+              <h2 class="flex"> Shiray <font class="f14">(在线)</font> </h2>
+            </div></div>
+            <form><input type="hidden" name="formhash" value="abc123"></form>
+            <div class="msgbox"><div class="friend_msg"><div class="dialog_t">在吗</div></div></div>
+            </body></html>
+        """.trimIndent()
+        val convo = ForumParser.parseChatConversation(html, "155359")
+        // 昵称不能把「(在线)」带进去，状态要单独取到
+        assertEquals("Shiray", convo.targetName)
+        assertEquals(true, convo.targetOnline)
+    }
+
+    @Test
+    fun chatConversationParsesOfflineFlag() {
+        val html = """
+            <html><head><title>聊天</title></head><body>
+            <div id="comiis_head"><h2 class="flex"> Shiray <font class="f14">(离线)</font> </h2></div>
+            </body></html>
+        """.trimIndent()
+        val convo = ForumParser.parseChatConversation(html, "155359")
+        assertEquals("Shiray", convo.targetName)
+        assertEquals(false, convo.targetOnline)
+    }
+
+    @Test
+    fun chatConversationWithoutStatusLeavesFlagNull() {
+        val html = """
+            <html><head><title>聊天</title></head><body>
+            <div id="comiis_head"><h2 class="flex"> Shiray </h2></div>
+            </body></html>
+        """.trimIndent()
+        val convo = ForumParser.parseChatConversation(html, "155359")
+        assertEquals("Shiray", convo.targetName)
+        assertNull(convo.targetOnline)
+    }
+
+    @Test
+    fun quoteWithBlockLevelSeparatorStillParses() {
+        // 编辑提交后站点烘回来的是 PC 版结构：meta 与正文各占一个 div、没有 <br>。
+        // 只按 <br> 切会把两者粘成一行、被引正文取空，引用卡整块不渲染、引用还会从正文里消失
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1">
+              <div class="comiis_a">
+                <div class="comiis_quote"><blockquote>
+                  <div><a href="x"><font color="#999999">username123 发表于 7 天前</font></a></div>
+                  <div>由于降低了请求频率2</div>
+                </blockquote></div>
+                我的正文
+              </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertEquals("username123", post.quote?.author)
+        assertEquals("由于降低了请求频率2", post.quote?.text)
+        // 引用块要收进 quote 字段，不能残在正文里
+        assertTrue(post.contentHtml.contains("我的正文"))
+        assertTrue(!post.contentHtml.contains("comiis_quote"))
+        assertTrue(!post.contentHtml.contains("发表于"))
+    }
+
+    @Test
+    fun quoteWithBrSeparatorStillParses() {
+        val html = """
+            <html><head><title>帖子</title></head><body>
+            <div class="comiis_postli" id="pid1"><div class="comiis_a">
+              <div class="comiis_quote"><blockquote><font size="2">回复</font> <font color="#999999">秋枫Mod 发表于 5 秒前</font><br>
+              不是，怎么还有我的事。</blockquote></div><br>
+              你住论坛了</div></div>
+            </body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        assertEquals("秋枫Mod", post.quote?.author)
+        assertEquals("不是，怎么还有我的事。", post.quote?.text)
+        assertTrue(post.contentHtml.contains("你住论坛了"))
+    }
+
+    @Test
+    fun deadAttachmentsInImgListStillBecomeImageBlocks() {
+        // thread-174561 首帖实测：正文里内嵌一张图，站点又把两枚 2023 年的旧附件列在正文
+        // 下方的 ul.comiis_img_list，两枚在 CDN 上已失效。网页端懒加载失败后换成 0×0 的
+        // img_err.gif、不占地方；客户端的图块结构必须与网页一致（内嵌图单张 + 两枚连排成组），
+        // 收起失效图的逻辑才有东西可收。
+        val html = """
+            <html><head><title>关于epicv2 - MT论坛</title></head><body>
+            <div class="comiis_postlist">
+            <div class="comiis_postli" id="pid11951142">
+              <div class="comiis_postli_top comiis_postli_topv1"></div>
+              <div class="comiis_message view_one"><div class="comiis_messages comiis_aimg_show cl">
+                <div class="comiis_a comiis_message_table cl">正文<br />
+                <span class="comiis_postimg vm"><img id="aimg_378876" src="https://cdn.binmt.cc/template/comiis_app/pic/none.png" comiis_loadimages="https://oos.binmt.cc/forum/202610/12/134225gf5fb6br0rmibr4z.jpg" /></span><br />
+                <a href="https://rainyspring.lanzoub.com/b01gidm61e">apk和dex 提取码：4cgx</a></div>
+                <ul class="comiis_img_list cl">
+                  <li><span><img id="aimg_216369" src="https://cdn.binmt.cc/template/comiis_app/pic/none.png" comiis_loadimages="https://cdn.binmt.cc/data/attachment/forum/202301/22/230319qmnn997n171qn7nq.jpg" /></span></li>
+                  <li><span><img id="aimg_216368" src="https://cdn.binmt.cc/template/comiis_app/pic/none.png" comiis_loadimages="https://cdn.binmt.cc/data/attachment/forum/202301/22/225554ze12ntl092182aem.jpg" /></span></li>
+                </ul>
+              </div></div>
+            </div>
+            </div></body></html>
+        """.trimIndent()
+        val post = ForumParser.parseThreadPage(html, 1).posts.single()
+        val blocks = parseContentBlocks(post.contentHtml)
+        assertEquals(
+            "https://oos.binmt.cc/forum/202610/12/134225gf5fb6br0rmibr4z.jpg",
+            blocks.filterIsInstance<ContentBlock.Image>().single().url,
+        )
+        assertEquals(
+            listOf(
+                "https://cdn.binmt.cc/data/attachment/forum/202301/22/230319qmnn997n171qn7nq.jpg",
+                "https://cdn.binmt.cc/data/attachment/forum/202301/22/225554ze12ntl092182aem.jpg",
+            ),
+            blocks.filterIsInstance<ContentBlock.ImageGroup>().single().urls,
+        )
+    }
+
+    /**
+     * 登录失败提示页（实测 2026-10-14，站点按 IP 记的失败次数锁定）。
+     *
+     * 提示正文在 div.comiis_password_top 的 <p> 里；页面上没有 form#loginform，
+     * 也没有 #messagetext / div.comiis_tip，旧实现因此取不到文案、还把失败判成成功。
+     */
+    private val loginFailureHtml = """
+        <html><head><title>提示信息 - MT论坛</title></head><body id="member">
+        <div class="comiis_bodybox"><div class="comiis_password_top">
+            <div class="comiis_password_ico"><i class="comiis_font f_e"></i></div>
+            <p class="f_c">密码错误次数过多，请 15 分钟后重新登录</p>
+        </div></div>
+        <script type="text/javascript">setTimeout(function(){ window.location.href = 'https://bbs.binmt.cc/member.php?mod=logging&action=login&mobile=2'; }, 3000);</script>
+        </body></html>
+    """.trimIndent()
+
+    /** 登录成功提示页（实测站点的「欢迎您回来…现在将转入…」文案）。 */
+    private val loginSuccessHtml = """
+        <html><head><title>提示信息 - MT论坛</title></head><body id="member">
+        <div class="comiis_bodybox"><div class="comiis_password_top">
+            <p class="f_c">欢迎您回来，初中生 username123，现在将转入登录前页面</p>
+        </div></div>
+        <script>setTimeout(function(){ window.location.href = 'https://bbs.binmt.cc/forum.php?mod=guide&view=hot&mobile=2'; }, 1000);</script>
+        </body></html>
+    """.trimIndent()
+
+    @Test
+    fun readsLoginFailureTip() {
+        assertEquals(
+            "密码错误次数过多，请 15 分钟后重新登录",
+            ForumParser.extractTipText(loginFailureHtml),
+        )
+    }
+
+    @Test
+    fun marksLoginFailurePageAsFailed() {
+        val result = ForumParser.parseLoginResult(loginFailureHtml)
+        assertEquals(false, result.success)
+        assertEquals("密码错误次数过多，请 15 分钟后重新登录", result.message)
+    }
+
+    @Test
+    fun marksLoginSuccessPageAsSucceeded() {
+        val result = ForumParser.parseLoginResult(loginSuccessHtml)
+        assertEquals(true, result.success)
+    }
+
+    @Test
+    fun stillTreatsRemainingLoginFormAsFailure() {
+        val html = "<html><head><title>登录 - MT论坛</title></head><body>" +
+            "<div class=\"comiis_tip\">密码错误，请重新输入</div>" +
+            "<form id=\"loginform\"></form></body></html>"
+        val result = ForumParser.parseLoginResult(html)
+        assertEquals(false, result.success)
+        assertEquals("密码错误，请重新输入", result.message)
+    }
+}
