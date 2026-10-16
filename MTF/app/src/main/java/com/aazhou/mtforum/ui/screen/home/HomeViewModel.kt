@@ -34,9 +34,6 @@ class HomeViewModel(
     private val repository: ForumRepository,
     private val contentCache: ContentCache,
 ) : ViewModel() {
-    /** 调试用：ViewModel 实例唯一标记；每次重建会变。 */
-    val instTag: String = java.util.UUID.randomUUID().toString().take(6)
-
 
     
     private val _hot = MutableStateFlow<HomeData?>(null)

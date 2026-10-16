@@ -88,6 +88,9 @@ import com.aazhou.mtforum.ui.theme.accentTextColor
 import com.aazhou.mtforum.ui.theme.bodyTextColor
 import com.aazhou.mtforum.ui.theme.dimImageInDark
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.filter
 
 
 
@@ -120,14 +123,6 @@ fun HomeScreen(
     
     scrollToTopTick: Int,
 ) {
-    // ── 临时调试：显示 ViewModel 实例标记（测完删）
-    androidx.compose.material3.Text(
-        text = "VM:${viewModel.instTag}",
-        modifier = androidx.compose.ui.Modifier.padding(4.dp),
-        color = androidx.compose.ui.graphics.Color.Red,
-        style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
-    )
-
     val colors = LocalMtfColors.current
     val container = LocalContext.current.container()
     val viewModel: HomeViewModel = appViewModel { HomeViewModel(it.repository, it.contentCache) }
@@ -161,9 +156,22 @@ fun HomeScreen(
         }
     }
 
-    // 持续保存滚动位置到全局存储：切页/返回后恢复
+    // ── 顺序：等数据 → 恢复 → 再开始保存 ──────────
+    // 合并为单个 LaunchedEffect，避免保存逻辑抢在恢复前把 (0,0) 写回 Store。
     HomeTabs.views.forEachIndexed { i, view ->
         LaunchedEffect(view, listStates[i]) {
+            // 1) 等列表有内容
+            snapshotFlow { listStates[i].layoutInfo.totalItemsCount }
+                .filter { it > 0 }
+                .first()
+
+            // 2) 恢复保存的位置
+            val saved = ScrollStore.get("home:$view")
+            if (saved != null && (saved.first > 0 || saved.second > 0)) {
+                listStates[i].scrollToItem(saved.first, saved.second)
+            }
+
+            // 3) 恢复完成后才开始保存（此后位置变化即写入 Store）
             snapshotFlow {
                 listStates[i].firstVisibleItemIndex to listStates[i].firstVisibleItemScrollOffset
             }.collect { (idx, off) ->
