@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -98,7 +99,7 @@ fun ThreadListScreen(
     val sorts = ForumSort.entries
     val pagerState = rememberPagerState(initialPage = 0) { sorts.size }
     
-    val listStates = sorts.map { rememberLazyListState() }
+    val listStates = sorts.map { _k -> key(_k) { rememberLazyListState() } }
 
     
     LaunchedEffect(actionMessage) {

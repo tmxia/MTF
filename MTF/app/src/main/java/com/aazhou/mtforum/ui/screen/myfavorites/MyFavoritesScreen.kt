@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -346,7 +347,7 @@ fun MyFavoritesScreen(
 
     val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
     
-    val listStates = tabs.map { rememberLazyListState() }
+    val listStates = tabs.map { _k -> key(_k) { rememberLazyListState() } }
     val scope = rememberCoroutineScope()
 
     

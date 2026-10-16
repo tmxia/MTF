@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -138,7 +139,7 @@ fun HomeScreen(
 
     val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
     
-    val listStates = HomeTabs.views.map { rememberLazyListState() }
+    val listStates = HomeTabs.views.map { _k -> key(_k) { rememberLazyListState() } }
 
     
     

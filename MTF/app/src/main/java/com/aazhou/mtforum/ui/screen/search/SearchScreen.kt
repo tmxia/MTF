@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.runtime.key
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -175,7 +176,7 @@ fun SearchScreen(
         if (urls.isNotEmpty()) preview = urls to index
     }
 
-    val listStates = SearchTab.values().map { rememberLazyListState() }
+    val listStates = SearchTab.values().map { _k -> key(_k) { rememberLazyListState() } }
     val searchTabs = SearchTab.values()
     val pagerState = rememberPagerState(initialPage = 0) { searchTabs.size }
     val scope = rememberCoroutineScope()
