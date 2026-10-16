@@ -35,9 +35,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.key
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -62,7 +60,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.aazhou.mtforum.data.model.Thread
 import com.aazhou.mtforum.image.smallImageRequest
-import com.aazhou.mtforum.ui.common.ScrollStore
 import com.aazhou.mtforum.ui.common.AppToast
 import com.aazhou.mtforum.ui.common.ErrorBox
 import com.aazhou.mtforum.ui.common.ImagePreview
@@ -89,13 +86,7 @@ import com.aazhou.mtforum.ui.theme.accentTextColor
 import com.aazhou.mtforum.ui.theme.bodyTextColor
 import com.aazhou.mtforum.ui.theme.dimImageInDark
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filter
-
-// 全局 LazyListState 缓存：跨 composition 重建复用实例，滚动位置不丢。
-// tab 数量有限，轻微泄漏可接受。
-private val globalHomeListStates = mutableMapOf<String, LazyListState>()
 
 
 
@@ -150,44 +141,17 @@ fun HomeScreen(
 
     val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
     
+    // 官方标准做法：rememberSaveable + LazyListState.Saver
+    // Compose 会自动把滚动位置保存到 SavedStateRegistry，NavHost 的
+    // saveState/restoreState 机制会跨页面保留它。
     val listStates = HomeTabs.views.map { _k ->
-        globalHomeListStates.getOrPut(_k) { LazyListState() }
-    }
-
-    // ── 保存：离开 composition 时把滚动位置写入 ScrollStore ────
-    HomeTabs.views.forEachIndexed { i, view ->
-        DisposableEffect(view, listStates[i]) {
-            onDispose {
-                val st = listStates[i]
-                if (st.layoutInfo.totalItemsCount > 0) {
-                    ScrollStore.note(
-                        "home:$view",
-                        st.firstVisibleItemIndex,
-                        st.firstVisibleItemScrollOffset,
-                    )
-                }
+        key(_k) {
+            rememberSaveable(saver = LazyListState.Saver) {
+                LazyListState()
             }
         }
     }
 
-    // ── 恢复：数据到达时滚回保存位置 ─────────────
-    HomeTabs.views.forEachIndexed { i, view ->
-        LaunchedEffect(view, listStates[i]) {
-            snapshotFlow { listStates[i].layoutInfo.totalItemsCount }
-                .filter { it > 0 }
-                .first()
-
-            val saved = ScrollStore.get("home:$view")
-            if (saved != null && (saved.first > 0 || saved.second > 0)) {
-                listStates[i].scrollToItem(saved.first, saved.second)
-            }
-        }
-    }
-
-
-    
-    
-    
     var handledScrollTopTick by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(scrollToTopTick) {
         if (scrollToTopTick > handledScrollTopTick) {
