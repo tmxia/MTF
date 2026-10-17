@@ -204,6 +204,9 @@ class FollowListViewModel(
 
     fun refreshOnEnter(type: String) {
         if (type !in entered) return
+        // 已有成功数据时跳过：从详情返回时 reload 会把列表缩回第 1 页，
+        // 用户浏览位置超过 1 页时 LazyList 锚不到原 item，被迫跳回顶部附近。
+        if (_tabStates.value[type]?.state is UiState.Success) return
         viewModelScope.launch { reload(type, sessionStore.uid.first()) }
     }
 

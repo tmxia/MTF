@@ -224,6 +224,13 @@ class MyFriendsViewModel(
 
     fun refreshOnEnter(view: String) {
         if (view !in entered) return
+        // 已有成功数据时跳过：从其他页返回时 reload 会把列表缩回第 1 页。
+        // request tab 和普通 tab 分别判断。
+        if (view == VIEW_REQUEST) {
+            if (_requestState.value is UiState.Success) return
+        } else {
+            if (_tabStates.value[view]?.state is UiState.Success) return
+        }
         viewModelScope.launch {
             val uid = sessionStore.uid.first()
             if (view == VIEW_REQUEST) reloadRequests(uid) else reload(view, uid)

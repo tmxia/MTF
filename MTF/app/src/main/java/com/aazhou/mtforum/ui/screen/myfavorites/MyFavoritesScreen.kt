@@ -191,6 +191,7 @@ class MyFavoritesViewModel(
 
     fun refreshOnEnter(type: String) {
         if (type !in entered) return
+        if (_tabStates.value[type]?.state is UiState.Success) return
         viewModelScope.launch { reload(type, sessionStore.uid.first()) }
     }
 
