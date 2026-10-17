@@ -1,0 +1,471 @@
+package com.aazhou.mtforum.ui.screen.myposts
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.key
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.aazhou.mtforum.R
+import com.aazhou.mtforum.data.cache.CacheKeys
+import com.aazhou.mtforum.data.cache.ContentCache
+import com.aazhou.mtforum.data.model.MyThreadPage
+import com.aazhou.mtforum.data.model.Thread
+import com.aazhou.mtforum.data.repo.ForumRepository
+import com.aazhou.mtforum.data.repo.SessionStore
+import com.aazhou.mtforum.ui.common.AppToast
+import com.aazhou.mtforum.ui.common.EmptyBox
+import com.aazhou.mtforum.ui.common.ErrorBox
+import com.aazhou.mtforum.ui.common.LoadingBox
+import com.aazhou.mtforum.ui.common.MtfTopBarHeight
+import com.aazhou.mtforum.ui.common.SwipeTabIndicator
+import com.aazhou.mtforum.ui.common.ThreadCard
+import com.aazhou.mtforum.ui.common.UiState
+import com.aazhou.mtforum.ui.common.appViewModel
+import com.aazhou.mtforum.ui.common.scrollToNewest
+import com.aazhou.mtforum.ui.common.reportViewportAtTop
+import com.aazhou.mtforum.ui.theme.LocalMtfColors
+import com.aazhou.mtforum.ui.theme.accentTextColor
+import com.aazhou.mtforum.ui.theme.bodyTextColor
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+
+
+data class MyThreadsTabState(
+    val state: UiState<List<Thread>> = UiState.Loading,
+    val page: Int = 1,
+    val loadingMore: Boolean = false,
+    val hasNext: Boolean = true,
+    
+
+
+
+
+
+    val resetScrollTick: Int = 0,
+)
+
+class MyPostsViewModel(
+    private val repository: ForumRepository,
+    private val contentCache: ContentCache,
+    private val sessionStore: SessionStore,
+) : ViewModel() {
+
+    
+    private val _tabStates = MutableStateFlow<Map<String, MyThreadsTabState>>(emptyMap())
+    val tabStates: StateFlow<Map<String, MyThreadsTabState>> = _tabStates.asStateFlow()
+
+    
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
+
+    fun consumeActionMessage() {
+        _actionMessage.value = null
+    }
+
+    
+    private val _refreshing = MutableStateFlow<Set<String>>(emptySet())
+    val refreshing: StateFlow<Set<String>> = _refreshing.asStateFlow()
+
+    
+    private val loadMoreJobs = mutableMapOf<String, Job>()
+
+    
+    private val entered = mutableSetOf<String>()
+
+    
+
+
+
+
+
+    private val viewportAtTop = mutableMapOf<String, Boolean>()
+
+    
+    fun noteViewportAtTop(type: String, atTop: Boolean) {
+        viewportAtTop[type] = atTop
+    }
+
+    private val cacheJson = Json { ignoreUnknownKeys = true }
+
+    
+
+
+
+
+    fun load(type: String) {
+        entered += type
+        if (_tabStates.value.containsKey(type)) return
+        update(type) { MyThreadsTabState() }
+        viewModelScope.launch {
+            val uid = sessionStore.uid.first()
+            
+            val cached = contentCache.read(
+                CacheKeys.myThreads(uid, type),
+                CacheKeys.LIST_TTL,
+                allowExpired = true,
+            ) {
+                cacheJson.decodeFromString<MyThreadPage>(it)
+            }
+            if (cached != null) {
+                update(type) {
+                    it.copy(
+                        state = UiState.Success(cached.threads),
+                        page = cached.page,
+                        hasNext = cached.hasNext,
+                    )
+                }
+            }
+            reload(type, uid)
+        }
+    }
+
+    
+    fun retry(type: String) {
+        viewModelScope.launch { reload(type, sessionStore.uid.first()) }
+    }
+
+
+
+
+
+
+    fun refreshOnEnter(type: String) {
+        if (type !in entered) return
+        if (_tabStates.value[type]?.state is UiState.Success) return
+        viewModelScope.launch { reload(type, sessionStore.uid.first()) }
+    }
+
+    
+
+
+
+
+    fun refresh(type: String) {
+        if (type in _refreshing.value) return
+        
+        loadMoreJobs.remove(type)?.cancel()
+        if (_tabStates.value.containsKey(type)) update(type) { it.copy(loadingMore = false) }
+        _refreshing.value = _refreshing.value + type
+        viewModelScope.launch {
+            reload(type, sessionStore.uid.first())
+            _refreshing.value = _refreshing.value - type
+        }
+    }
+
+    private suspend fun reload(type: String, uid: String) {
+        runCatching { repository.myThreads(type = type, page = 1) }
+            .onSuccess { data ->
+                update(type) {
+                    it.copy(
+                        state = UiState.Success(data.threads),
+                        page = 1,
+                        hasNext = data.hasNext,
+                        
+                        resetScrollTick = it.resetScrollTick +
+                            if (viewportAtTop[type] == true) 1 else 0,
+                    )
+                }
+                saveToCache(uid, type)
+            }
+            .onFailure { e ->
+                
+                if (_tabStates.value[type]?.state is UiState.Success) {
+                    _actionMessage.value = "新数据获取失败"
+                } else {
+                    update(type) { it.copy(state = UiState.Error(e.message ?: "加载失败")) }
+                }
+            }
+    }
+
+    
+    fun loadMore(type: String) {
+        val current = _tabStates.value[type] ?: return
+        if (current.loadingMore || !current.hasNext) return
+        if (current.state !is UiState.Success) return
+        update(type) { it.copy(loadingMore = true) }
+        loadMoreJobs[type] = viewModelScope.launch {
+            val next = current.page + 1
+            runCatching { repository.myThreads(type = type, page = next) }
+                .onSuccess { data ->
+                    
+                    val existing = (_tabStates.value[type]?.state as? UiState.Success)?.data.orEmpty()
+                    val known = existing.mapTo(HashSet()) { it.tid }
+                    val fresh = data.threads.filter { known.add(it.tid) }
+                    update(type) {
+                        it.copy(
+                            state = UiState.Success(existing + fresh),
+                            page = next,
+                            hasNext = data.hasNext && fresh.isNotEmpty(),
+                        )
+                    }
+                    saveToCache(sessionStore.uid.first(), type)
+                }
+                .onFailure { update(type) { it.copy(hasNext = false) } }
+            update(type) { it.copy(loadingMore = false) }
+        }
+    }
+
+    private fun update(type: String, transform: (MyThreadsTabState) -> MyThreadsTabState) {
+        val current = _tabStates.value[type] ?: MyThreadsTabState()
+        _tabStates.value = _tabStates.value + (type to transform(current))
+    }
+
+    
+    private suspend fun saveToCache(uid: String, type: String) {
+        val tab = _tabStates.value[type] ?: return
+        val threads = (tab.state as? UiState.Success)?.data ?: return
+        contentCache.write(
+            key = CacheKeys.myThreads(uid, type),
+            ttlMillis = CacheKeys.LIST_TTL,
+            value = MyThreadPage(threads = threads, page = tab.page, hasNext = tab.hasNext),
+            encode = { cacheJson.encodeToString(MyThreadPage.serializer(), it) },
+        )
+    }
+}
+
+private val MY_POSTS_TABS = listOf("主题" to "thread", "回复" to "reply")
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyPostsScreen(
+    onBack: () -> Unit,
+    onThreadClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+) {
+    val colors = LocalMtfColors.current
+    val viewModel: MyPostsViewModel = appViewModel {
+        MyPostsViewModel(it.repository, it.contentCache, it.sessionStore)
+    }
+    val tabs = MY_POSTS_TABS
+    val tabStates by viewModel.tabStates.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val actionMessage by viewModel.actionMessage.collectAsStateWithLifecycle()
+
+    val pagerState = rememberPagerState(initialPage = 0) { tabs.size }
+    
+    val listStates = tabs.map { _k -> key(_k) { rememberLazyListState() } }
+    val scope = rememberCoroutineScope()
+
+
+    LaunchedEffect(Unit) { viewModel.refreshOnEnter(tabs[pagerState.currentPage].second) }
+
+    
+    LaunchedEffect(actionMessage) {
+        val message = actionMessage ?: return@LaunchedEffect
+        AppToast.show(message)
+        viewModel.consumeActionMessage()
+    }
+
+    Scaffold(
+        containerColor = colors.background,
+        contentColor = bodyTextColor(),
+        topBar = {
+            Column(Modifier.background(colors.topBar)) {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.topBar),
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                painterResource(R.drawable.ic_back),
+                                contentDescription = "返回",
+                                tint = bodyTextColor(),
+                            )
+                        }
+                    },
+                    title = {
+                        Text(
+                            "我的帖子",
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp),
+                            fontWeight = FontWeight.Bold,
+                            color = bodyTextColor(),
+                        )
+                    },
+                    expandedHeight = MtfTopBarHeight,
+                )
+                val accent = accentTextColor()
+                TabRow(
+                    selectedTabIndex = pagerState.currentPage,
+                    containerColor = colors.topBar,
+                    contentColor = accent,
+                    indicator = { tabPositions ->
+                        SwipeTabIndicator(pagerState, tabPositions, accent)
+                    },
+                ) {
+                    tabs.forEachIndexed { index, (title, _) ->
+                        Tab(
+                            selected = pagerState.currentPage == index,
+                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                            text = {
+                                Text(
+                                    title,
+                                    fontWeight = if (pagerState.currentPage == index) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 15.sp,
+                                    color = if (pagerState.currentPage == index) accent else colors.textSecondary,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        },
+    ) { padding ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize().padding(padding),
+            
+            beyondViewportPageCount = 2,
+        ) { page ->
+            val type = tabs[page].second
+            
+            LaunchedEffect(type) { viewModel.load(type) }
+            val tab = tabStates[type] ?: MyThreadsTabState()
+            MyThreadsTab(
+                tab = tab,
+                refreshing = type in refreshing,
+                listState = listStates[page],
+                onViewportAtTopChange = { viewModel.noteViewportAtTop(type, it) },
+                emptyText = "暂无${tabs[page].first}数据",
+                onRetry = { viewModel.retry(type) },
+                onRefresh = { viewModel.refresh(type) },
+                onLoadMore = { viewModel.loadMore(type) },
+                onThreadClick = onThreadClick,
+                onUserClick = onUserClick,
+            )
+        }
+    }
+}
+
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun MyThreadsTab(
+    tab: MyThreadsTabState,
+    refreshing: Boolean,
+    listState: LazyListState,
+    onViewportAtTopChange: (Boolean) -> Unit,
+    emptyText: String,
+    onRetry: () -> Unit,
+    onRefresh: () -> Unit,
+    onLoadMore: () -> Unit,
+    onThreadClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
+) {
+    
+    
+    
+    listState.reportViewportAtTop(onViewportAtTopChange)
+
+    
+
+
+    val initialTick = remember { tab.resetScrollTick }
+
+
+    LaunchedEffect(tab.resetScrollTick) {
+
+
+        if (tab.resetScrollTick > initialTick) {
+
+
+            listState.scrollToNewest()
+
+
+        }
+
+
+    }
+    when (val current = tab.state) {
+        is UiState.Loading -> LoadingBox()
+        is UiState.Error -> ErrorBox(current.message, onRetry)
+        is UiState.Success -> {
+            val threads = current.data
+            if (threads.isEmpty()) {
+                EmptyBox(emptyText)
+            } else {
+                val shouldLoadMore by remember {
+                    derivedStateOf {
+                        val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        val total = listState.layoutInfo.totalItemsCount
+                        total > 0 && last >= total - 3
+                    }
+                }
+                LaunchedEffect(shouldLoadMore, tab.hasNext) {
+                    if (shouldLoadMore && tab.hasNext) onLoadMore()
+                }
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = onRefresh,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    LazyColumn(
+                        state = listState,
+                        contentPadding = PaddingValues(top = 2.5.dp, bottom = 24.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(threads, key = { it.tid }) { thread ->
+                            ThreadCard(
+                                thread = thread,
+                                onClick = { onThreadClick(thread.tid) },
+                                onImageClick = { _, _ -> },
+                                onUserClick = onUserClick,
+                                showForumName = true,
+                            )
+                        }
+                        if (tab.loadingMore) {
+                            item(key = "loading-more") {
+                                Box(
+                                    Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(Modifier.size(22.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
