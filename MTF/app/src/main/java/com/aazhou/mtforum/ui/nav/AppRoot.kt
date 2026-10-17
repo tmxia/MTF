@@ -54,6 +54,10 @@ import com.aazhou.mtforum.ui.screen.chat.ChatScreen
 import com.aazhou.mtforum.ui.screen.verify.WafVerificationScreen
 import com.kyant.backdrop.backdrops.layerBackdrop
 import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.navigation.NavBackStackEntry
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.AnimatedContentTransitionScope
 
 object Routes {
     const val HOME = "home"
@@ -160,17 +164,50 @@ fun AppRoot(onToggleTheme: () -> Unit, openNotice: Boolean = false) {
         NavHost(
             navController = navController,
             startDestination = Routes.HOME,
-            
-            
-            
-            enterTransition = { EnterTransition.None },
-            exitTransition = { ExitTransition.None },
-            
-            
-            
-            
-            popEnterTransition = { EnterTransition.None },
-            popExitTransition = { ExitTransition.None },
+            // 主 Tab 互切即时切换；二级页面保持标准 300ms 双页视差平移转场（不加速），
+            // exitTransition 配合渐隐使旧页面在动画收尾阶段平滑软着陆，彻底消除终点帧 Dispose 引发的视觉顿挫
+            enterTransition = {
+                if (isTabSwitch()) {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            exitTransition = {
+                if (isTabSwitch()) {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        targetOffset = { (it * 0.3f).toInt() },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            popEnterTransition = {
+                if (isTabSwitch()) {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        initialOffset = { (it * 0.3f).toInt() },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            popExitTransition = {
+                if (isTabSwitch()) {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
             modifier = Modifier
                 .fillMaxSize()
             
@@ -547,4 +584,13 @@ fun AppRoot(onToggleTheme: () -> Unit, openNotice: Boolean = false) {
         
         GlobalToastHost(Modifier.align(Alignment.TopCenter))
     }
+}
+
+
+/** 判断是否为底部 Tab 之间的切换（Tab 之间不需要滑动动画，直接瞬间切换） */
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean {
+    val tabRoutes = listOf(Routes.HOME, Routes.FORUMS, Routes.PROFILE)
+    val initial = initialState.destination.route
+    val target = targetState.destination.route
+    return initial in tabRoutes && target in tabRoutes
 }

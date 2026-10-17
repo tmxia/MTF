@@ -211,7 +211,7 @@ fun ThreadDetailScreen(
     
     val currentUser by container.currentUser.collectAsStateWithLifecycle()
     val loggedIn = currentUser?.isLoggedIn == true
-    val state by viewModel.state.collectAsStateWithLifecycle()
+    val state by viewModel.state.collectAsStateWithLifecycle(minActiveState = Lifecycle.State.RESUMED)
     val replyState by viewModel.replyState.collectAsStateWithLifecycle()
     val orderType by viewModel.orderType.collectAsStateWithLifecycle()
     val opOnly by viewModel.opOnly.collectAsStateWithLifecycle()
@@ -611,10 +611,7 @@ fun ThreadDetailScreen(
                     .fillMaxSize()
                     
                     
-                    .then(
-                        if (page != null && !composerVisible) Modifier.layerBackdrop(replyBarBackdrop)
-                        else Modifier
-                    ),
+                    
             ) {
             when (val current = state) {
                 is UiState.Loading -> LoadingBox(Modifier.fillMaxSize())
