@@ -1,0 +1,12 @@
+# 备份
+/MTF-bk-*/
+*.bak
+*.bak-*
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# Gradle 缓存（根目录）
+/.gradle/
+/build/

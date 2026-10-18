@@ -1,0 +1,596 @@
+package com.aazhou.mtforum.ui.nav
+
+import android.net.Uri
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aazhou.mtforum.R
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.aazhou.mtforum.ui.common.container
+import com.aazhou.mtforum.ui.common.AppToast
+import com.aazhou.mtforum.ui.common.GlobalToastHost
+import com.aazhou.mtforum.ui.common.maskAccessibility
+import com.aazhou.mtforum.ui.screen.forumlist.ForumListScreen
+import com.aazhou.mtforum.ui.screen.downloads.DownloadsScreen
+import com.aazhou.mtforum.ui.screen.home.HomeScreen
+import com.aazhou.mtforum.ui.screen.logs.LogDetailScreen
+import com.aazhou.mtforum.ui.screen.logs.LogsScreen
+import com.aazhou.mtforum.ui.screen.login.LoginScreen
+import com.aazhou.mtforum.data.model.NoticeGroup
+import com.aazhou.mtforum.ui.screen.notice.NoticeScreen
+import com.aazhou.mtforum.ui.screen.notice.NoticeTabScreen
+import com.aazhou.mtforum.ui.screen.postedit.PostEditScreen
+import com.aazhou.mtforum.ui.screen.profile.ProfileScreen
+import com.aazhou.mtforum.ui.screen.search.SearchScreen
+import com.aazhou.mtforum.ui.screen.settings.SettingsScreen
+import com.aazhou.mtforum.ui.screen.threaddetail.ThreadDetailScreen
+import com.aazhou.mtforum.ui.screen.threaddetail.DownloadedThreadScreen
+import com.aazhou.mtforum.ui.screen.threadlist.ThreadListScreen
+import com.aazhou.mtforum.ui.screen.user.UserProfileScreen
+import com.aazhou.mtforum.ui.screen.chat.ChatScreen
+import com.aazhou.mtforum.ui.screen.verify.WafVerificationScreen
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import androidx.navigation.NavBackStackEntry
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.AnimatedContentTransitionScope
+
+object Routes {
+    const val HOME = "home"
+    const val FORUMS = "forums"
+    const val PROFILE = "profile"
+    const val SEARCH = "search"
+    const val LOGIN = "login"
+    const val SETTINGS = "settings"
+    const val FORUM = "forum/{fid}/{name}"
+    
+    const val THREAD = "thread/{tid}?pid={pid}"
+    const val USER = "user/{uid}"
+    const val CHAT = "chat/{uid}?name={name}"
+    const val POST = "post/{fid}/{name}"
+    
+    const val EDIT_POST = "edit_post/{tid}/{pid}/{fid}/{name}"
+    const val NOTICE = "notice"
+    
+    const val NOTICE_TAB = "notice/{group}"
+    const val DOWNLOADS = "downloads"
+    const val DOWNLOADED_THREAD = "downloaded/{tid}"
+    const val LOGS = "logs"
+    const val LOG_DETAIL = "log/{id}"
+    const val MY_POSTS = "my_posts"
+    const val DRAFTS = "drafts"
+    const val MY_FAVORITES = "my_favorites"
+    const val MY_FRIENDS = "my_friends"
+    const val USER_POSTS = "user_posts/{uid}"
+    const val FOLLOW_LIST = "follow_list?type={type}"
+
+    fun followList(type: String = "following") = "follow_list?type=$type"
+
+    fun forum(fid: String, name: String) = "forum/$fid/${Uri.encode(name)}"
+    fun thread(tid: String) = "thread/$tid"
+
+    
+    fun noticeTab(group: NoticeGroup) = "notice/${group.name}"
+
+    fun user(uid: String) = "user/$uid"
+    fun userPosts(uid: String) = "user_posts/$uid"
+    fun chat(uid: String, name: String? = null) =
+        if (name.isNullOrBlank()) "chat/$uid" else "chat/$uid?name=${Uri.encode(name)}"
+    fun post(fid: String, name: String) =
+        "post/$fid/${Uri.encode(name.ifBlank { "版块" })}"
+    fun editPost(tid: String, pid: String, fid: String, name: String) =
+        "edit_post/$tid/$pid/$fid/${Uri.encode(name.ifBlank { "版块" })}"
+    fun downloadedThread(tid: String) = "downloaded/$tid"
+    fun logDetail(id: Long) = "log/$id"
+}
+
+@Composable
+fun AppRoot(onToggleTheme: () -> Unit, openNotice: Boolean = false) {
+    val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+
+    
+    val container = LocalContext.current.container()
+
+    
+    LaunchedEffect(openNotice) {
+        if (openNotice && container.isLoggedIn()) {
+            navController.navigate(Routes.NOTICE)
+        }
+    }
+    val needsVerification by container.httpClient.pendingVerificationFlow.collectAsStateWithLifecycle()
+    if (needsVerification) {
+        Dialog(onDismissRequest = {}, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+            WafVerificationScreen(
+                url = container.httpClient.verificationUrl,
+                onFinished = { cookie -> container.httpClient.completeVerification(cookie) },
+            )
+        }
+    }
+
+    val tabs = listOf(
+        GlassTab("首页", painterResource(R.drawable.ic_home)),
+        GlassTab("板块", painterResource(R.drawable.ic_list)),
+        GlassTab("我的", painterResource(R.drawable.ic_me_outline)),
+    )
+    val tabRoutes = listOf(Routes.HOME, Routes.FORUMS, Routes.PROFILE)
+    val selectedIndex = tabRoutes.indexOf(currentRoute)
+    val showBottomBar = selectedIndex >= 0
+    
+    var homeScrollTopTick by remember { mutableIntStateOf(0) }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            
+            .maskAccessibility(),
+    ) {
+        val background = MaterialTheme.colorScheme.background
+        
+        
+        
+        
+        val backgroundState = rememberUpdatedState(background)
+        val backdrop = rememberLayerBackdrop {
+            drawRect(backgroundState.value)
+            drawContent()
+        }
+
+        NavHost(
+            navController = navController,
+            startDestination = Routes.HOME,
+            
+            
+            enterTransition = {
+                if (isTabSwitch()) {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            exitTransition = {
+                if (isTabSwitch()) {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                        targetOffset = { (it * 0.3f).toInt() },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            popEnterTransition = {
+                if (isTabSwitch()) {
+                    EnterTransition.None
+                } else {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        initialOffset = { (it * 0.3f).toInt() },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            popExitTransition = {
+                if (isTabSwitch()) {
+                    ExitTransition.None
+                } else {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.End,
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    )
+                }
+            },
+            modifier = Modifier
+                .fillMaxSize()
+            
+            
+            .then(if (showBottomBar) Modifier.layerBackdrop(backdrop) else Modifier),
+        ) {
+            
+            val navigateToUser: (String) -> Unit = { uid ->
+                if (container.isLoggedIn()) {
+                    navController.navigate(Routes.user(uid))
+                } else {
+                    AppToast.show("你喜欢匿名偷窥？")
+                }
+            }
+
+            composable(Routes.HOME) {
+                HomeScreen(
+                    onSearch = { navController.navigate(Routes.SEARCH) },
+                    onToggleTheme = onToggleTheme,
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    
+                    onLogin = { navController.navigate(Routes.LOGIN) },
+                    onUserClick = navigateToUser,
+                    
+                    onMessages = {
+                        navController.navigate(Routes.NOTICE)
+                    },
+                    onForumClick = { fid, name -> navController.navigate(Routes.forum(fid, name)) },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    
+                    onProfileClick = navigateToUser,
+                    scrollToTopTick = homeScrollTopTick,
+                )
+            }
+            composable(Routes.FORUMS) {
+                ForumListScreen(
+                    onForumClick = { fid, name ->
+                        navController.navigate(Routes.forum(fid, name))
+                    },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onMessages = { navController.navigate(Routes.NOTICE) },
+                )
+            }
+            composable("history") {
+            com.aazhou.mtforum.ui.screen.history.HistoryScreen(
+                container = container,
+                onBack = { navController.popBackStack() },
+                onOpenThread = { tid -> navController.navigate("thread/$tid") },
+            )
+        }
+        composable(Routes.PROFILE) {
+                ProfileScreen(
+                    onLogin = { navController.navigate(Routes.LOGIN) },
+                    onDownloads = { navController.navigate(Routes.DOWNLOADS) },
+                    onHistory = { navController.navigate("history") },
+                    onDrafts = { navController.navigate(Routes.DRAFTS) },
+                    onMyPosts = {
+                        if (container.isLoggedIn()) navController.navigate(Routes.MY_POSTS)
+                        else navController.navigate(Routes.LOGIN)
+                    },
+                    onMyFavorites = {
+                        if (container.isLoggedIn()) navController.navigate(Routes.MY_FAVORITES)
+                        else navController.navigate(Routes.LOGIN)
+                    },
+                    onMyFriends = {
+                        if (container.isLoggedIn()) navController.navigate(Routes.MY_FRIENDS)
+                        else navController.navigate(Routes.LOGIN)
+                    },
+                    onFollowList = { type ->
+                        if (container.isLoggedIn()) navController.navigate(Routes.followList(type))
+                        else navController.navigate(Routes.LOGIN)
+                    },
+                    onUserClick = navigateToUser,
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onMessages = { navController.navigate(Routes.NOTICE) },
+                )
+            }
+            composable(Routes.SEARCH) {
+                SearchScreen(
+                    onBack = { navController.popBackStack() },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    onUserClick = navigateToUser,
+                    onForumClick = { fid, name -> navController.navigate(Routes.forum(fid, name)) },
+                )
+            }
+            composable(Routes.LOGIN) {
+                LoginScreen(
+                    onBack = { navController.popBackStack() },
+                    onSuccess = {
+                        
+                        container.refreshCurrentUserAsync()
+                        navController.popBackStack()
+                    },
+                )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenLogs = { navController.navigate(Routes.LOGS) },
+                )
+            }
+            composable(Routes.LOGS) {
+                LogsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenLog = { id -> navController.navigate(Routes.logDetail(id)) },
+                )
+            }
+            composable(
+                Routes.LOG_DETAIL,
+                arguments = listOf(navArgument("id") { type = NavType.LongType }),
+            ) { entry ->
+                LogDetailScreen(
+                    id = entry.arguments?.getLong("id") ?: 0L,
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            composable(Routes.NOTICE) {
+                NoticeScreen(
+                    onBack = { navController.popBackStack() },
+                    
+                    onGroupClick = { group -> navController.navigate(Routes.noticeTab(group)) },
+                    onFansClick = { navController.navigate(Routes.followList("follower")) },
+                )
+            }
+            composable(
+                Routes.NOTICE_TAB,
+                arguments = listOf(navArgument("group") { type = NavType.StringType }),
+            ) { entry ->
+                val group = entry.arguments?.getString("group")
+                    ?.let { name -> NoticeGroup.entries.firstOrNull { it.name == name } }
+                    ?: NoticeGroup.MY_POST
+                NoticeTabScreen(
+                    group = group,
+                    onBack = { navController.popBackStack() },
+                    
+                    
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    
+                    onUserClick = navigateToUser,
+                    onChatClick = { uid, name -> navController.navigate(Routes.chat(uid, name)) },
+                )
+            }
+            composable(Routes.DOWNLOADS) {
+                DownloadsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenThread = { tid -> navController.navigate(Routes.downloadedThread(tid)) },
+                )
+            }
+            composable(
+                Routes.DOWNLOADED_THREAD,
+                arguments = listOf(navArgument("tid") { type = NavType.StringType }),
+            ) { entry ->
+                DownloadedThreadScreen(
+                    tid = entry.arguments?.getString("tid").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onUserClick = navigateToUser,
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                )
+            }
+
+            composable(
+                Routes.FORUM,
+                arguments = listOf(
+                    navArgument("fid") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType },
+                ),
+            ) { entry ->
+                val fid = entry.arguments?.getString("fid").orEmpty()
+                val name = entry.arguments?.getString("name").orEmpty()
+                ThreadListScreen(
+                    fid = fid,
+                    title = name,
+                    onBack = { navController.popBackStack() },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    onUserClick = navigateToUser,
+                    onNewPost = { navController.navigate(Routes.post(fid, name)) },
+                )
+            }
+
+            composable(
+                Routes.THREAD,
+                arguments = listOf(navArgument("tid") { type = NavType.StringType }),
+            ) { entry ->
+                ThreadDetailScreen(
+                    tid = entry.arguments?.getString("tid").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onUserClick = navigateToUser,
+                    
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    
+                    onEditThread = { tid, pid, fid, name ->
+                        navController.navigate(Routes.editPost(tid, pid, fid, name))
+                    },
+                )
+            }
+
+            composable(
+                Routes.EDIT_POST,
+                arguments = listOf(
+                    navArgument("tid") { type = NavType.StringType },
+                    navArgument("pid") { type = NavType.StringType },
+                    navArgument("fid") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType },
+                ),
+            ) { entry ->
+                PostEditScreen(
+                    fid = entry.arguments?.getString("fid").orEmpty(),
+                    forumName = entry.arguments?.getString("name").orEmpty(),
+                    editTid = entry.arguments?.getString("tid").orEmpty(),
+                    editPid = entry.arguments?.getString("pid").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    
+                    onPosted = { navController.popBackStack() },
+                )
+            }
+
+            composable(Routes.USER, arguments = listOf(navArgument("uid") { type = NavType.StringType })) { entry ->
+                val targetUid = entry.arguments?.getString("uid").orEmpty()
+                
+                val currentUser by container.currentUser.collectAsStateWithLifecycle()
+                if (currentUser?.isLoggedIn != true) {
+                    LaunchedEffect(Unit) {
+                        AppToast.show("你喜欢匿名偷窥？")
+                        navController.popBackStack()
+                    }
+                } else {
+                    UserProfileScreen(
+                        uid = targetUid,
+                        onBack = { navController.popBackStack() },
+                        onChat = { targetUid, targetName ->
+                            navController.navigate(Routes.chat(targetUid, targetName))
+                        },
+                        onPostsClick = { targetUid ->
+                            navController.navigate(Routes.userPosts(targetUid))
+                        },
+                        
+                        onLogin = { navController.navigate(Routes.LOGIN) },
+                        onDownloads = { navController.navigate(Routes.DOWNLOADS) },
+                        onDrafts = { navController.navigate(Routes.DRAFTS) },
+                        onMyPosts = {
+                            if (container.isLoggedIn()) navController.navigate(Routes.MY_POSTS)
+                            else navController.navigate(Routes.LOGIN)
+                        },
+                        onMyFavorites = {
+                            if (container.isLoggedIn()) navController.navigate(Routes.MY_FAVORITES)
+                            else navController.navigate(Routes.LOGIN)
+                        },
+                        onMyFriends = {
+                            if (container.isLoggedIn()) navController.navigate(Routes.MY_FRIENDS)
+                            else navController.navigate(Routes.LOGIN)
+                        },
+                        onFollowList = { type ->
+                            if (container.isLoggedIn()) navController.navigate(Routes.followList(type))
+                            else navController.navigate(Routes.LOGIN)
+                        },
+                    )
+                }
+            }
+
+            composable(
+                Routes.CHAT,
+                arguments = listOf(
+                    navArgument("uid") { type = NavType.StringType },
+                    navArgument("name") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+            ) { entry ->
+                val chatUid = entry.arguments?.getString("uid").orEmpty()
+                val chatName = entry.arguments?.getString("name")
+                ChatScreen(
+                    uid = chatUid,
+                    targetName = chatName,
+                    onBack = { navController.popBackStack() },
+                    onUserClick = navigateToUser,
+                )
+            }
+
+            composable(
+                Routes.POST,
+                arguments = listOf(
+                    navArgument("fid") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType },
+                ),
+            ) { entry ->
+                PostEditScreen(
+                    fid = entry.arguments?.getString("fid").orEmpty(),
+                    forumName = entry.arguments?.getString("name").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onPosted = { navController.popBackStack() },
+                )
+            }
+
+            composable(Routes.MY_POSTS) {
+                com.aazhou.mtforum.ui.screen.myposts.MyPostsScreen(
+                    onBack = { navController.popBackStack() },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    onUserClick = navigateToUser,
+                )
+            }
+            composable(
+                Routes.USER_POSTS,
+                arguments = listOf(navArgument("uid") { type = NavType.StringType }),
+            ) { entry ->
+                com.aazhou.mtforum.ui.screen.user.UserPostsScreen(
+                    uid = entry.arguments?.getString("uid").orEmpty(),
+                    onBack = { navController.popBackStack() },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    onUserClick = navigateToUser,
+                )
+            }
+
+            composable(Routes.DRAFTS) {
+                com.aazhou.mtforum.ui.screen.drafts.DraftsScreen(
+                    onBack = { navController.popBackStack() },
+                    
+                    onOpenDraft = { fid, name -> navController.navigate(Routes.post(fid, name)) },
+                )
+            }
+
+            composable(Routes.MY_FAVORITES) {
+                com.aazhou.mtforum.ui.screen.myfavorites.MyFavoritesScreen(
+                    onBack = { navController.popBackStack() },
+                    onThreadClick = { tid -> navController.navigate(Routes.thread(tid)) },
+                    onForumClick = { fid, name -> navController.navigate(Routes.forum(fid, name)) },
+                )
+            }
+
+            composable(Routes.MY_FRIENDS) {
+                com.aazhou.mtforum.ui.screen.myfriends.MyFriendsScreen(
+                    onBack = { navController.popBackStack() },
+                    onUserClick = navigateToUser,
+                )
+            }
+
+            composable(
+                Routes.FOLLOW_LIST,
+                arguments = listOf(
+                    navArgument("type") {
+                        type = NavType.StringType
+                        defaultValue = "following"
+                    },
+                ),
+            ) { entry ->
+                val type = entry.arguments?.getString("type") ?: "following"
+                com.aazhou.mtforum.ui.screen.follow.FollowListScreen(
+                    initialType = type,
+                    onBack = { navController.popBackStack() },
+                    onUserClick = navigateToUser,
+                )
+            }
+        }
+
+        if (showBottomBar) {
+            GlassBottomBar(
+                backdrop = backdrop,
+                tabs = tabs,
+                selectedIndex = selectedIndex,
+                onSelect = { index ->
+                    navController.navigate(tabRoutes[index]) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                onReselect = { index ->
+                    if (tabRoutes[index] == Routes.HOME) homeScrollTopTick++
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+        
+        GlobalToastHost(Modifier.align(Alignment.TopCenter))
+    }
+}
+
+
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.isTabSwitch(): Boolean {
+    val tabRoutes = listOf(Routes.HOME, Routes.FORUMS, Routes.PROFILE)
+    val initial = initialState.destination.route
+    val target = targetState.destination.route
+    return initial in tabRoutes && target in tabRoutes
+}
