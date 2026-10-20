@@ -1,0 +1,270 @@
+package com.aazhou.mtforum.ui.common
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.aazhou.mtforum.R
+import com.aazhou.mtforum.ui.theme.LocalIsDarkTheme
+import com.aazhou.mtforum.ui.theme.LocalMtfColors
+import com.aazhou.mtforum.ui.theme.bodyTextColor
+
+
+
+
+
+@Composable
+fun MtfDialog(
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    maxWidth: androidx.compose.ui.unit.Dp? = null,
+    properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = LocalMtfColors.current
+    val isDark = LocalIsDarkTheme.current
+
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = properties,
+    ) {
+        Box(
+            modifier = Modifier
+                .widthIn(max = 360.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = modifier
+                    .then(
+                        if (maxWidth != null) Modifier.width(maxWidth)
+                        else Modifier.fillMaxWidth()
+                    )
+                    .clip(RoundedCornerShape(22.dp))
+                    .then(
+                        if (isDark) {
+                            Modifier.border(0.5.dp, colors.divider, RoundedCornerShape(22.dp))
+                        } else {
+                            Modifier
+                        },
+                    )
+                    .background(colors.surface)
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                content = content,
+            )
+        }
+    }
+}
+
+
+
+
+
+@Composable
+fun MtfConfirmDialog(
+    title: String,
+    onDismissRequest: () -> Unit,
+    onConfirm: () -> Unit,
+    icon: Painter? = null,
+    message: String? = null,
+    confirmText: String = "确定",
+    cancelText: String? = "取消",
+    confirmColor: androidx.compose.ui.graphics.Color? = null,
+    maxWidth: androidx.compose.ui.unit.Dp? = null,
+    content: (@Composable ColumnScope.() -> Unit)? = null,
+) {
+    val colors = LocalMtfColors.current
+    val isDark = LocalIsDarkTheme.current
+
+    MtfDialog(onDismissRequest = onDismissRequest, maxWidth = maxWidth) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            if (icon != null) {
+                
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background((confirmColor ?: MaterialTheme.colorScheme.primary).copy(alpha = if (isDark) 0.20f else 0.12f)),
+                ) {
+                    Icon(
+                        painter = icon,
+                        contentDescription = null,
+                        tint = confirmColor ?: MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp),
+                fontWeight = FontWeight.Bold,
+                color = bodyTextColor(),
+                textAlign = TextAlign.Center,
+            )
+
+            if (!message.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = message,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.5.sp, lineHeight = 20.sp),
+                    color = colors.textSecondary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+
+            if (content != null) {
+                Spacer(Modifier.height(14.dp))
+                content()
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                if (cancelText != null) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(colors.quoteBackground)
+                            .clickable(onClick = onDismissRequest),
+                    ) {
+                        Text(
+                            text = cancelText,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            fontWeight = FontWeight.Medium,
+                            color = bodyTextColor(),
+                        )
+                    }
+                }
+
+                val primary = confirmColor ?: MaterialTheme.colorScheme.primary
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .then(
+                            if (isDark) {
+                                Modifier
+                                    .border(1.dp, primary.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                    .background(primary.copy(alpha = 0.22f))
+                            } else {
+                                Modifier.background(primary)
+                            },
+                        )
+                        .clickable(onClick = onConfirm),
+                ) {
+                    Text(
+                        text = confirmText,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = if (isDark) primary else MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+
+
+@Composable
+fun MtfContentDialog(
+    title: String,
+    onDismissRequest: () -> Unit,
+    subtitle: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val colors = LocalMtfColors.current
+
+    MtfDialog(onDismissRequest = onDismissRequest) {
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp),
+                    fontWeight = FontWeight.Bold,
+                    color = bodyTextColor(),
+                )
+                if (!subtitle.isNullOrBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = colors.textSecondary,
+                    )
+                }
+            }
+
+            
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(colors.quoteBackground)
+                    .clickable(onClick = onDismissRequest),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_close),
+                    contentDescription = "关闭",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        content()
+    }
+}
