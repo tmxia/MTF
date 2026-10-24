@@ -136,3 +136,21 @@ jobs:
           - Android 8.0+ (API 29+)
           " \
             "${{ steps.apk.outputs.name }}"
+
+  cleanup_self:
+    name: Cleanup workflow history
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ always() }}
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Delete old runs
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          keep_minimum_runs: 1
+          retain_days: 0
+          delete_workflow_pattern: "Build & Release APK"
+          repository: ${{ github.repository }}
