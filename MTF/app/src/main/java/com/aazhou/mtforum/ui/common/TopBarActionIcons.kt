@@ -1,5 +1,9 @@
 package com.aazhou.mtforum.ui.common
 
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.Lifecycle
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -53,6 +57,20 @@ fun TopBarActionIcons(
     val hasSigned by checkInManager.hasSigned.collectAsStateWithLifecycle()
     val isCheckingIn by checkInManager.isCheckingIn.collectAsStateWithLifecycle()
     val hasUnreadNotices by container.unreadNotices.collectAsStateWithLifecycle()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                
+                checkInManager.checkStatusSilently()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,

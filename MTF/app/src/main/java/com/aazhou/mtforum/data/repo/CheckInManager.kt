@@ -77,6 +77,9 @@ class CheckInManager(
                 if (status.hasSigned) {
                     _hasSigned.value = true
                     sessionStore.saveCheckInDate(uid, today)
+                } else {
+                    
+                    _hasSigned.value = false
                 }
             } catch (_: Exception) {
                 
