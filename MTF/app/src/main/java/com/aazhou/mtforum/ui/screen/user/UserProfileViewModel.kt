@@ -210,20 +210,27 @@ class UserProfileViewModel(
         val username = currentProfile.name.orEmpty()
         val formhash = currentProfile.formhash ?: ""
         if (username.isBlank()) {
-            AppToast.show("未能获取用户名，无法拉黑")
+            AppToast.show("未能获取用户名 ，无法拉黑")
             return
         }
         if (_isOperating.value) return
+        
+        
+        blockedUsersStore.add(uid)
+        onDone()
+
         viewModelScope.launch {
             _isOperating.value = true
             try {
                 val res = repository.addUserBlacklist(username, formhash)
                 res.onSuccess { msg ->
+                    
                     blockedUsersStore.add(uid)
                     AppToast.show(msg)
-                    onDone()
                 }.onFailure { e ->
-                    AppToast.show(e.message ?: "拉黑失败")
+                    
+                    blockedUsersStore.remove(uid)
+                    AppToast.show(e.message ?: "网络异常，拉黑失败")
                 }
             } finally {
                 _isOperating.value = false
@@ -234,15 +241,20 @@ class UserProfileViewModel(
     
     fun unblockUser() {
         if (_isOperating.value) return
+        
+        
+        blockedUsersStore.remove(uid)
+        
         viewModelScope.launch {
             _isOperating.value = true
             try {
                 val res = repository.removeUserBlacklist(uid)
                 res.onSuccess { msg ->
-                    blockedUsersStore.remove(uid)
                     AppToast.show(msg)
                 }.onFailure { e ->
-                    AppToast.show(e.message ?: "移出黑名单失败")
+                    
+                    blockedUsersStore.add(uid)
+                    AppToast.show(e.message ?: "网络异常，移出黑名单失败")
                 }
             } finally {
                 _isOperating.value = false
