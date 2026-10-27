@@ -103,8 +103,11 @@ class RelationStore(
             if (!data.hasNext) break
             page++
         }
-        _blocked.value = all
-        save("blocked", all)
+        // 修复跳变：采用本地 + 远端的并集，防止远端延迟返回的空/旧数据覆盖本地刚拉黑的记录
+        val currentLocal = _blocked.value
+        val merged = all + currentLocal
+        _blocked.value = merged
+        save("blocked", merged)
     }
 
     private suspend fun pullFriends() {
