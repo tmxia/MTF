@@ -613,7 +613,16 @@ object ForumParser {
                 child.hasClass("comiis_img_one") -> html.append(child.outerHtml())
             }
         }
-        return html.toString()
+        // 核心修复：自动补全正文内所有相对路径的 src 和 href，防止 UI 层崩溃
+        var resultHtml = html.toString()
+        val urlRegex = Regex("(src|href)=[\"'](?!http|//|javascript:|data:|mailto:)([^\"']+)[\"']")
+        resultHtml = urlRegex.replace(resultHtml) { match ->
+            val attr = match.groupValues[1]
+            val path = match.groupValues[2]
+            val fullUrl = "https://bbs.binmt.cc/" + path.removePrefix("/")
+            "${attr}=\"${fullUrl}\""
+        }
+        return resultHtml
     }
 
     
