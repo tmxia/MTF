@@ -608,21 +608,53 @@ object ForumParser {
         val html = StringBuilder()
         for (child in container.children()) {
             when {
-                child === contentEl -> html.append(child.html())
+                child === contentEl -> {
+                    // 兼容 Markdown 插件的渲染容器
+                    val markdownContainer = child.selectFirst("div.parsedown-markdown")
+                    if (markdownContainer != null) {
+                        html.append(markdownContainer.html())
+                    } else {
+                        html.append(child.html())
+                    }
+                }
                 child.tagName() == "ul" && child.hasClass("comiis_img_list") -> html.append(child.outerHtml())
                 child.hasClass("comiis_img_one") -> html.append(child.outerHtml())
             }
         }
-        // 核心修复：自动补全正文内所有相对路径的 src 和 href，防止 UI 层崩溃
-        var resultHtml = html.toString()
-        val urlRegex = Regex("(src|href)=[\"'](?!http|//|javascript:|data:|mailto:)([^\"']+)[\"']")
-        resultHtml = urlRegex.replace(resultHtml) { match ->
-            val attr = match.groupValues[1]
-            val path = match.groupValues[2]
-            val fullUrl = "https://bbs.binmt.cc/" + path.removePrefix("/")
-            "${attr}=\"${fullUrl}\""
+        
+        // 提取并拼装评分记录
+        val rateHtml = extractRateRecords(container)
+        if (rateHtml.isNotEmpty()) {
+            html.append("<div><br/><b>评分记录：</b><br/>").append(rateHtml).append("</div>")
         }
+
+        // 清理可能导致排版断裂的无用标签
+        var resultHtml = html.toString()
+        resultHtml = resultHtml.replace(Regex("(?i)<ignore_js_op>"), "").replace(Regex("(?i)</ignore_js_op>"), "")
+
         return resultHtml
+    }
+
+    private fun extractRateRecords(container: Element): String {
+        // 兼容 Discuz 默认的 dl.rate 和其他模板的 div.comiis_rate
+        val rateBox = container.selectFirst("dl.rate, div.comiis_rate, table.rate") ?: return ""
+        val sb = StringBuilder()
+        
+        // 优先解析标准 dl/dt/dd 结构
+        rateBox.select("dt, dd, p").forEach { el ->
+            val text = el.text().trim()
+            if (text.isNotEmpty() && !text.startsWith("评分")) {
+                // 如果包含评分者的超链接，保留链接
+                val a = el.selectFirst("a")
+                if (a != null) {
+                    sb.append("<a href=\"").append(a.attr("href")).append("\">").append(a.text()).append("</a> ")
+                    sb.append(el.text().replace(a.text(), "").trim()).append("<br/>")
+                } else {
+                    sb.append(text).append("<br/>")
+                }
+            }
+        }
+        return sb.toString()
     }
 
     
