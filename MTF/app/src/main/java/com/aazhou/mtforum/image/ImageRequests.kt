@@ -51,7 +51,7 @@ private fun sizedImageRequest(url: String?, maxSize: Dp, crossfade: Boolean): Im
 }
 
 
-// 统一处理 URL，补全缺少的协议头
+
 internal fun fixUrl(url: String?): String? {
     if (url.isNullOrBlank()) return null
     val trimmed = url.trim()

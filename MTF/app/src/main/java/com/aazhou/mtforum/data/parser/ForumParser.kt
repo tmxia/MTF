@@ -609,7 +609,7 @@ object ForumParser {
         for (child in container.children()) {
             when {
                 child === contentEl -> {
-                    // 兼容 Markdown 插件的渲染容器
+                    
                     val markdownContainer = child.selectFirst("div.parsedown-markdown")
                     if (markdownContainer != null) {
                         html.append(markdownContainer.html())
@@ -622,13 +622,13 @@ object ForumParser {
             }
         }
         
-        // 提取并拼装评分记录
+        
         val rateHtml = extractRateRecords(container)
         if (rateHtml.isNotEmpty()) {
             html.append("<div><br/><b>评分记录：</b><br/>").append(rateHtml).append("</div>")
         }
 
-        // 清理可能导致排版断裂的无用标签
+        
         var resultHtml = html.toString()
         resultHtml = resultHtml.replace(Regex("(?i)<ignore_js_op>"), "").replace(Regex("(?i)</ignore_js_op>"), "")
 
@@ -636,15 +636,15 @@ object ForumParser {
     }
 
     private fun extractRateRecords(container: Element): String {
-        // 兼容 Discuz 默认的 dl.rate 和其他模板的 div.comiis_rate
+        
         val rateBox = container.selectFirst("dl.rate, div.comiis_rate, table.rate") ?: return ""
         val sb = StringBuilder()
         
-        // 优先解析标准 dl/dt/dd 结构
+        
         rateBox.select("dt, dd, p").forEach { el ->
             val text = el.text().trim()
             if (text.isNotEmpty() && !text.startsWith("评分")) {
-                // 如果包含评分者的超链接，保留链接
+                
                 val a = el.selectFirst("a")
                 if (a != null) {
                     sb.append("<a href=\"").append(a.attr("href")).append("\">").append(a.text()).append("</a> ")
