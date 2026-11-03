@@ -228,42 +228,40 @@ fun SettingsScreen(
             SettingsSection(title = "电池与后台") {
                 val context = LocalContext.current
                 val lifecycleOwner = LocalLifecycleOwner.current
-                var isIgnoringBattery by remember { mutableStateOf(false) }
-
-                DisposableEffect(lifecycleOwner) {
-                    val observer = LifecycleEventObserver { _, event ->
-                        if (event == Lifecycle.Event.ON_RESUME) {
-                            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                            isIgnoringBattery = powerManager.isIgnoringBatteryOptimizations(context.packageName)
-                        }
-                    }
-                    lifecycleOwner.lifecycle.addObserver(observer)
-                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-                }
+                val prefs = remember { context.getSharedPreferences("battery_settings", Context.MODE_PRIVATE) }
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            var isIgnoringBattery by remember { 
+                mutableStateOf(
+                    if (prefs.contains("battery_state")) prefs.getBoolean("battery_state", true)
+                    else powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                )
+            }
 
                 MtfSwitchRow(
                     title = "后台保活",
                     subtitle = "开启后系统将忽略对本应用的电池优化限制。",
                     checked = isIgnoringBattery,
                     onCheckedChange = { checked ->
-                        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                        if (checked) {
-                            if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                                try {
-                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                        data = Uri.parse("package:${context.packageName}")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    isIgnoringBattery = checked
+                    prefs.edit().putBoolean("battery_state", checked).apply()
+
+                    if (checked) {
+                        if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                            try {
+                                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
                                 }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                             }
-                        } else {
-                            
-                            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
                         }
+                    } else {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                        android.widget.Toast.makeText(context, "请在系统设置中允许电池优化，以彻底关闭保活。", android.widget.Toast.LENGTH_SHORT).show()
                     }
-                )
+                }
+            )
                 HorizontalDivider(color = colors.divider.copy(alpha = 0.6f), thickness = 0.5.dp)
             }
 
