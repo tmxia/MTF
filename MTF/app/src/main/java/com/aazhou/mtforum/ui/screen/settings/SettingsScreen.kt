@@ -450,7 +450,7 @@ fun SettingsScreen(
 
         AlertDialog(
             onDismissRequest = { showBlockedForumsDialog = false },
-            title = { Text("屏蔽版块", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
+            title = { Text("屏蔽版块", style = MaterialTheme.typography.titleMedium) },
             text = {
                 if (isLoading) {
                     androidx.compose.foundation.layout.Box(
