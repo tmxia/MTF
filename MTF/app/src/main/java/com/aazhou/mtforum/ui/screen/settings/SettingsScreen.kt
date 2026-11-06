@@ -33,6 +33,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -95,8 +98,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.TextButton
-import com.aazhou.mtforum.data.repo.HomeTabsStore
+import com.aazhou.mtforum.data.repo.BlockedForumsStore
 import com.aazhou.mtforum.ui.screen.home.HomeTabs
 
 @OptIn(ExperimentalMaterial3Api::class, coil.annotation.ExperimentalCoilApi::class)
@@ -105,8 +111,8 @@ fun SettingsScreen(
     onBack: () -> Unit = {},
     onOpenLogs: () -> Unit,
 ) {
-    var showHomeTabsDialog by remember { mutableStateOf(false) }
-    val activeTabs by HomeTabsStore.activeTabs.collectAsStateWithLifecycle()
+    var showBlockedForumsDialog by remember { mutableStateOf(false) }
+    val blockedForums by BlockedForumsStore.blockedForums.collectAsStateWithLifecycle()
     val ctx = LocalContext.current
 
     val context = LocalContext.current
@@ -188,11 +194,11 @@ fun SettingsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showHomeTabsDialog = true }
+                        .clickable { showBlockedForumsDialog = true }
                         .padding(horizontal = 14.dp, vertical = 14.dp),
                 ) {
                     Text(
-                        "定制首页板块",
+                        "屏蔽版块",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.5.sp,
@@ -415,43 +421,50 @@ fun SettingsScreen(
         )
     }
 
-    if (showHomeTabsDialog) {
+    
+
+
+    if (showBlockedForumsDialog) {
+        val knownForums by BlockedForumsStore.knownForums.collectAsStateWithLifecycle()
+        val blockedForums by BlockedForumsStore.blockedForums.collectAsStateWithLifecycle()
+        
         AlertDialog(
-            onDismissRequest = { showHomeTabsDialog = false },
-            title = { Text("定制首页板块") },
+            onDismissRequest = { showBlockedForumsDialog = false },
+            title = { Text("屏蔽版块") },
             text = {
-                Column {
-                    HomeTabs.views.forEach { view ->
-                        val label = HomeTabs.labels[HomeTabs.views.indexOf(view)]
-                        val isChecked = activeTabs.contains(view)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    val newTabs = if (isChecked) activeTabs - view else activeTabs + view
-                                    if (newTabs.isNotEmpty()) {
-                                        HomeTabsStore.updateTabs(ctx, newTabs)
+                if (knownForums.isEmpty()) {
+                    Text("暂未获取到版块信息，请先返回首页刷新一下帖子。", fontSize = 14.sp, color = Color.Gray)
+                } else {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        modifier = Modifier.heightIn(max = 400.dp)
+                    ) {
+                        items(knownForums.toList().sorted()) { forum ->
+                            val isChecked = blockedForums.contains(forum)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val newBlocked = if (isChecked) blockedForums - forum else blockedForums + forum
+                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
                                     }
-                                }
-                                .padding(vertical = 8.dp)
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = { checked ->
-                                    val newTabs = if (checked) activeTabs + view else activeTabs - view
-                                    if (newTabs.isNotEmpty()) {
-                                        HomeTabsStore.updateTabs(ctx, newTabs)
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = { checked ->
+                                        val newBlocked = if (checked) blockedForums + forum else blockedForums - forum
+                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
                                     }
-                                }
-                            )
-                            Text(text = label, modifier = Modifier.padding(start = 8.dp))
+                                )
+                                Text(text = forum, fontSize = 15.sp)
+                            }
                         }
                     }
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showHomeTabsDialog = false }) {
+                TextButton(onClick = { showBlockedForumsDialog = false }) {
                     Text("完成")
                 }
             }

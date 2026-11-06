@@ -7,6 +7,7 @@ import com.aazhou.mtforum.data.cache.ContentCache
 import com.aazhou.mtforum.data.model.HomeData
 import com.aazhou.mtforum.data.model.Thread
 import com.aazhou.mtforum.data.repo.ForumRepository
+import com.aazhou.mtforum.data.repo.BlockedForumsStore
 import com.aazhou.mtforum.ui.common.UiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ data class FeedState(
 )
 
 class HomeViewModel(
+
     private val repository: ForumRepository,
     private val contentCache: ContentCache,
 ) : ViewModel() {
@@ -88,6 +90,13 @@ class HomeViewModel(
 
 
 
+
+    
+    private fun filterThreads(threads: List<Thread>): List<Thread> {
+        val blocked = BlockedForumsStore.blockedForums.value
+        if (blocked.isEmpty()) return threads
+        return threads.filter { t -> t.forumName?.let { !blocked.contains(it) } ?: true }
+    }
 
     fun load(view: String) {
         entered += view
@@ -157,7 +166,7 @@ class HomeViewModel(
             .onSuccess { data ->
                 update(view) {
                     it.copy(
-                        state = UiState.Success(data.threads.distinctBy { it.tid }), 
+                        state = UiState.Success(filterThreads(data.threads.distinctBy { it.tid })), 
                         page = 1,
                         hasNext = data.hasNext,
                         
@@ -194,7 +203,7 @@ class HomeViewModel(
                     val fresh = data.threads.filter { known.add(it.tid) }
                     update(view) {
                         it.copy(
-                            state = UiState.Success((existing + fresh).distinctBy { it.tid }), 
+                            state = UiState.Success(filterThreads((existing + fresh).distinctBy { it.tid })), 
                             page = next,
                             hasNext = data.hasNext && fresh.isNotEmpty(),
                         )
