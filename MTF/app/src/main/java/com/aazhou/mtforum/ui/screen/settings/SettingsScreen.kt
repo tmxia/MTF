@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.aazhou.mtforum.ui.screen.settings
 
 import android.graphics.Color as AndroidColor
@@ -37,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -103,6 +106,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.TextButton
 import com.aazhou.mtforum.data.repo.BlockedForumsStore
 import com.aazhou.mtforum.ui.screen.home.HomeTabs
@@ -430,13 +434,10 @@ fun SettingsScreen(
         var allForums by remember { mutableStateOf<List<com.aazhou.mtforum.data.model.Forum>>(emptyList()) }
         var isLoading by remember { mutableStateOf(true) }
         val blockedForums by BlockedForumsStore.blockedForums.collectAsStateWithLifecycle()
-        val scope = rememberCoroutineScope()
 
         androidx.compose.runtime.LaunchedEffect(Unit) {
             try {
-                // 动态请求 API，合并所有分组里的版块
                 val groups = ctx.container().repository.forumGroups()
-                // 核心修复：去重，防止同一个版块出现在多个分组导致 LazyColumn 的 key 冲突
                 allForums = groups.flatMap { it.forums }.distinctBy { it.fid }
                 isLoading = false
             } catch (e: Exception) {
@@ -446,7 +447,7 @@ fun SettingsScreen(
 
         AlertDialog(
             onDismissRequest = { showBlockedForumsDialog = false },
-            title = { Text("屏蔽版块") },
+            title = { Text("屏蔽版块", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) },
             text = {
                 if (isLoading) {
                     androidx.compose.foundation.layout.Box(
@@ -458,43 +459,34 @@ fun SettingsScreen(
                 } else if (allForums.isEmpty()) {
                     Text("获取版块失败，请检查网络", color = Color.Gray)
                 } else {
-                    // 核心修复：用可滚动的 Column 替代 LazyColumn，高度自适应，消除底部空白
-                    androidx.compose.foundation.layout.Column(
+                    androidx.compose.foundation.layout.FlowRow(
                         modifier = Modifier
+                            .fillMaxWidth()
                             .heightIn(max = 400.dp)
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         allForums.forEach { forum ->
                             val isChecked = blockedForums.contains(forum.name)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val newBlocked = if (isChecked) blockedForums - forum.name else blockedForums + forum.name
-                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
-                                    }
-                                    .padding(vertical = 2.dp), // 核心修复：大幅缩小上下间距
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isChecked,
-                                    onCheckedChange = { checked ->
-                                        val newBlocked = if (checked) blockedForums + forum.name else blockedForums - forum.name
-                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
-                                    },
-                                    modifier = Modifier.size(20.dp) // 缩小复选框尺寸
-                                )
-                                Text(
-                                    text = forum.name, 
-                                    fontSize = 14.sp, 
-                                    color = LocalMtfColors.current.textPrimary // 适配你的主题颜色
-                                )
-                            }
+                            androidx.compose.material3.FilterChip(
+                                selected = isChecked,
+                                onClick = {
+                                    val newBlocked = if (isChecked) blockedForums - forum.name else blockedForums + forum.name
+                                    BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
+                                },
+                                label = { 
+                                    Text(
+                                        text = forum.name, 
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isChecked) androidx.compose.ui.text.font.FontWeight.Medium else androidx.compose.ui.text.font.FontWeight.Normal
+                                    ) 
+                                },
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                            )
                         }
                     }
                 }
-            
             },
             confirmButton = {
                 TextButton(onClick = { showBlockedForumsDialog = false }) {
