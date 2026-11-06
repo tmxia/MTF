@@ -213,9 +213,12 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.weight(1f))
                     Text(
-                        "设置 >",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = androidx.compose.ui.graphics.Color.Gray,
+                        "设置",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 
