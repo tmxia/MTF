@@ -183,6 +183,37 @@ fun SettingsScreen(
         ) {
             
             SettingsSection(title = "主题与显示") {
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showHomeTabsDialog = true }
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                ) {
+                    Text(
+                        "定制首页板块",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 14.5.sp,
+                        ),
+                        color = bodyTextColor(),
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Text(
+                        "设置 >",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = androidx.compose.ui.graphics.Color.Gray,
+                    )
+                }
+                
+                androidx.compose.material3.HorizontalDivider(
+                    color = androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.3f),
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(horizontal = 14.dp)
+                )
+
+
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
