@@ -425,40 +425,41 @@ fun SettingsScreen(
 
 
     if (showBlockedForumsDialog) {
+        // 预设常用大版块列表（源数据），加上历史动态获取的版块
+        val defaultForums = listOf("综合交流", "编程开发", "休闲灌水", "逆向交流", "原创发布区", "悬赏问答区", "安全技术", "精品软件")
         val knownForums by BlockedForumsStore.knownForums.collectAsStateWithLifecycle()
         val blockedForums by BlockedForumsStore.blockedForums.collectAsStateWithLifecycle()
         
+        // 合并列表并去重
+        val allForums = (defaultForums + knownForums).distinct().sorted()
+
         AlertDialog(
             onDismissRequest = { showBlockedForumsDialog = false },
             title = { Text("屏蔽版块") },
             text = {
-                if (knownForums.isEmpty()) {
-                    Text("暂未获取到版块信息，请先返回首页刷新一下帖子。", fontSize = 14.sp, color = Color.Gray)
-                } else {
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp)
-                    ) {
-                        items(knownForums.toList().sorted()) { forum ->
-                            val isChecked = blockedForums.contains(forum)
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val newBlocked = if (isChecked) blockedForums - forum else blockedForums + forum
-                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
-                                    }
-                                    .padding(vertical = 8.dp)
-                            ) {
-                                Checkbox(
-                                    checked = isChecked,
-                                    onCheckedChange = { checked ->
-                                        val newBlocked = if (checked) blockedForums + forum else blockedForums - forum
-                                        BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
-                                    }
-                                )
-                                Text(text = forum, fontSize = 15.sp)
-                            }
+                androidx.compose.foundation.lazy.LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp)
+                ) {
+                    items(allForums) { forum ->
+                        val isChecked = blockedForums.contains(forum)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newBlocked = if (isChecked) blockedForums - forum else blockedForums + forum
+                                    BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    val newBlocked = if (checked) blockedForums + forum else blockedForums - forum
+                                    BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
+                                }
+                            )
+                            Text(text = forum, fontSize = 15.sp)
                         }
                     }
                 }
