@@ -436,7 +436,8 @@ fun SettingsScreen(
             try {
                 // 动态请求 API，合并所有分组里的版块
                 val groups = ctx.container().repository.forumGroups()
-                allForums = groups.flatMap { it.forums }
+                // 核心修复：去重，防止同一个版块出现在多个分组导致 LazyColumn 的 key 冲突
+                allForums = groups.flatMap { it.forums }.distinctBy { it.fid }
                 isLoading = false
             } catch (e: Exception) {
                 isLoading = false
