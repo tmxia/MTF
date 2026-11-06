@@ -308,7 +308,9 @@ private fun FeedPage(
         )
     }
 
-    var rankExpanded by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("mtf_home_prefs", android.content.Context.MODE_PRIVATE) }
+    var rankExpanded by remember { mutableStateOf(prefs.getBoolean("rank_expanded", true)) }
 
     
     
@@ -362,7 +364,10 @@ private fun FeedPage(
                                 onThreadClick,
                                 collapsedLimit = RankCollapsedLimit,
                                 expanded = rankExpanded,
-                                onToggleExpanded = { rankExpanded = !rankExpanded },
+                                onToggleExpanded = { 
+                                    rankExpanded = !rankExpanded
+                                    prefs.edit().putBoolean("rank_expanded", rankExpanded).apply()
+                                },
                             )
                         }
                     }
