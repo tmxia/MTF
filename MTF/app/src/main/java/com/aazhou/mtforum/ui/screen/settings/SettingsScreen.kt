@@ -215,7 +215,7 @@ fun SettingsScreen(
                     Text(
                         "设置",
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             fontSize = 14.5.sp,
                         ),
                         color = MaterialTheme.colorScheme.primary,
