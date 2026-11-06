@@ -77,6 +77,7 @@ import com.aazhou.mtforum.ui.common.reportViewportAtTop
 import com.aazhou.mtforum.ui.common.scrollToTop
 import com.aazhou.mtforum.ui.common.TopBarActionIcons
 import com.aazhou.mtforum.ui.common.TopBarActionsEndPadding
+import com.aazhou.mtforum.data.repo.HomeTabsStore
 import com.aazhou.mtforum.ui.common.TopBarVerticalPadding
 import com.aazhou.mtforum.ui.common.onDoubleTapToTop
 import com.aazhou.mtforum.ui.screen.login.LoginDialog
@@ -130,6 +131,8 @@ fun HomeScreen(
     val actionMessage by viewModel.actionMessage.collectAsStateWithLifecycle()
     
     val me by container.currentUser.collectAsStateWithLifecycle()
+    val activeTabs by HomeTabsStore.activeTabs.collectAsStateWithLifecycle()
+    val finalTabs = if (activeTabs.isEmpty()) HomeTabs.views else activeTabs
 
     
     var preview by remember { mutableStateOf<Pair<List<String>, Int>?>(null) }
@@ -139,12 +142,12 @@ fun HomeScreen(
     val scope = rememberCoroutineScope()
     var showLoginDialog by remember { mutableStateOf(false) }
 
-    val pagerState = rememberPagerState(initialPage = 0) { HomeTabs.views.size }
+    val pagerState = rememberPagerState(initialPage = 0) { finalTabs.size }
     
     
     
     
-    val listStates = HomeTabs.views.map { _k ->
+    val listStates = finalTabs.map { _k ->
         key(_k) {
             rememberSaveable(saver = LazyListState.Saver) {
                 LazyListState()

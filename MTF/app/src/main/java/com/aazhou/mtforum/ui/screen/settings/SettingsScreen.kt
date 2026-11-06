@@ -93,6 +93,11 @@ import com.aazhou.mtforum.ui.theme.bodyTextColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
+import com.aazhou.mtforum.data.repo.HomeTabsStore
+import com.aazhou.mtforum.ui.screen.home.HomeTabs
 
 @OptIn(ExperimentalMaterial3Api::class, coil.annotation.ExperimentalCoilApi::class)
 @Composable
@@ -100,6 +105,10 @@ fun SettingsScreen(
     onBack: () -> Unit = {},
     onOpenLogs: () -> Unit,
 ) {
+    var showHomeTabsDialog by remember { mutableStateOf(false) }
+    val activeTabs by HomeTabsStore.activeTabs.collectAsStateWithLifecycle()
+    val ctx = LocalContext.current
+
     val context = LocalContext.current
     val container = context.container()
     val themeStore = container.themeStore
@@ -374,6 +383,50 @@ fun SettingsScreen(
             },
         )
     }
+
+    if (showHomeTabsDialog) {
+        AlertDialog(
+            onDismissRequest = { showHomeTabsDialog = false },
+            title = { Text("定制首页板块") },
+            text = {
+                Column {
+                    HomeTabs.views.forEach { view ->
+                        val label = HomeTabs.labels[HomeTabs.views.indexOf(view)]
+                        val isChecked = activeTabs.contains(view)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val newTabs = if (isChecked) activeTabs - view else activeTabs + view
+                                    if (newTabs.isNotEmpty()) {
+                                        HomeTabsStore.updateTabs(ctx, newTabs)
+                                    }
+                                }
+                                .padding(vertical = 8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isChecked,
+                                onCheckedChange = { checked ->
+                                    val newTabs = if (checked) activeTabs + view else activeTabs - view
+                                    if (newTabs.isNotEmpty()) {
+                                        HomeTabsStore.updateTabs(ctx, newTabs)
+                                    }
+                                }
+                            )
+                            Text(text = label, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showHomeTabsDialog = false }) {
+                    Text("完成")
+                }
+            }
+        )
+    }
+
 }
 
 @Composable

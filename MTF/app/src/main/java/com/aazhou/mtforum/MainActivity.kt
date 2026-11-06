@@ -1,5 +1,7 @@
 package com.aazhou.mtforum
 
+
+import com.aazhou.mtforum.data.repo.HomeTabsStore
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -26,6 +28,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        HomeTabsStore.init(this)
         enableEdgeToEdge()
         handleIntent(intent)
         val themeStore = (application as MtfApp).container.themeStore
