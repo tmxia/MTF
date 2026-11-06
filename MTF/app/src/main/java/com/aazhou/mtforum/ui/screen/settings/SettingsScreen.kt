@@ -450,7 +450,7 @@ fun SettingsScreen(
             text = {
                 if (isLoading) {
                     androidx.compose.foundation.layout.Box(
-                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         androidx.compose.material3.CircularProgressIndicator()
@@ -458,10 +458,13 @@ fun SettingsScreen(
                 } else if (allForums.isEmpty()) {
                     Text("获取版块失败，请检查网络", color = Color.Gray)
                 } else {
-                    androidx.compose.foundation.lazy.LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp)
+                    // 核心修复：用可滚动的 Column 替代 LazyColumn，高度自适应，消除底部空白
+                    androidx.compose.foundation.layout.Column(
+                        modifier = Modifier
+                            .heightIn(max = 400.dp)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        items(allForums, key = { it.fid }) { forum ->
+                        allForums.forEach { forum ->
                             val isChecked = blockedForums.contains(forum.name)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -471,20 +474,27 @@ fun SettingsScreen(
                                         val newBlocked = if (isChecked) blockedForums - forum.name else blockedForums + forum.name
                                         BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
                                     }
-                                    .padding(vertical = 8.dp)
+                                    .padding(vertical = 2.dp), // 核心修复：大幅缩小上下间距
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Checkbox(
                                     checked = isChecked,
                                     onCheckedChange = { checked ->
                                         val newBlocked = if (checked) blockedForums + forum.name else blockedForums - forum.name
                                         BlockedForumsStore.updateBlockedForums(ctx, newBlocked)
-                                    }
+                                    },
+                                    modifier = Modifier.size(20.dp) // 缩小复选框尺寸
                                 )
-                                Text(text = forum.name, fontSize = 15.sp)
+                                Text(
+                                    text = forum.name, 
+                                    fontSize = 14.sp, 
+                                    color = LocalMtfColors.current.textPrimary // 适配你的主题颜色
+                                )
                             }
                         }
                     }
                 }
+            
             },
             confirmButton = {
                 TextButton(onClick = { showBlockedForumsDialog = false }) {
