@@ -105,6 +105,8 @@ import com.aazhou.mtforum.ui.theme.accentTextColor
 import com.aazhou.mtforum.ui.theme.bodyTextColor
 import com.aazhou.mtforum.ui.theme.dimImageInDark
 import kotlinx.coroutines.launch
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 
 private const val PREFS_SEARCH = "mtf_search_prefs"
 private const val KEY_HISTORY = "history_keywords"
