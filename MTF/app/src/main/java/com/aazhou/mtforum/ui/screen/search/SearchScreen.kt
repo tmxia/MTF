@@ -973,7 +973,6 @@ private fun UserResultRow(
     }
 }
 
-@Composable
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BoardChip(
