@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -131,6 +132,8 @@ fun SearchScreen(
     val forumGroups by viewModel.forumGroups.collectAsStateWithLifecycle()
     val selectedFidName by viewModel.selectedFidName.collectAsStateWithLifecycle()
     var boardMenuOpen by remember { mutableStateOf(false) }
+    var isBoardMultiMode by remember { mutableStateOf(false) }
+    var tempSelectedFids by remember { mutableStateOf(setOf<String>()) }
     LaunchedEffect(Unit) {
         viewModel.loadForumGroups()
     }
@@ -431,7 +434,7 @@ val listStates = SearchTab.values().map { _k ->
 
         
         if (boardMenuOpen) {
-            Dialog(onDismissRequest = { boardMenuOpen = false }) {
+            Dialog(onDismissRequest = { boardMenuOpen = false; isBoardMultiMode = false }) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -445,13 +448,13 @@ val listStates = SearchTab.values().map { _k ->
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(
-                            text = "选择板块",
+                            text = if (isBoardMultiMode) "多选板块" else "选择板块",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = bodyTextColor(),
                         )
                         IconButton(
-                            onClick = { boardMenuOpen = false },
+                            onClick = { boardMenuOpen = false; isBoardMultiMode = false },
                             modifier = Modifier.size(28.dp),
                         ) {
                             Icon(
@@ -467,21 +470,21 @@ val listStates = SearchTab.values().map { _k ->
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .weight(1f, fill = false)
                             .heightIn(max = 480.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        
                         BoardChip(
                             name = "全部板块",
-                            selected = selectedFidName == "全部板块",
+                            selected = selectedFidName == "全部板块" && !isBoardMultiMode,
                             onClick = {
                                 viewModel.selectFid(null, "全部板块")
                                 boardMenuOpen = false
+                                isBoardMultiMode = false
                             },
                         )
                         Spacer(Modifier.height(14.dp))
 
-                        
                         forumGroups
                             .filter { it.name != "我关注的" && it.forums.isNotEmpty() }
                             .forEach { group ->
@@ -498,18 +501,29 @@ val listStates = SearchTab.values().map { _k ->
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         rowForums.forEach { forum ->
+                                            val fidStr = forum.fid ?: ""
+                                            val isSelected = if (isBoardMultiMode) tempSelectedFids.contains(fidStr) else selectedFidName == forum.name
+                                            
                                             Box(modifier = Modifier.weight(1f)) {
                                                 BoardChip(
                                                     name = forum.name,
-                                                    selected = selectedFidName == forum.name,
+                                                    selected = isSelected,
                                                     onClick = {
-                                                        viewModel.selectFid(forum.fid, forum.name)
-                                                        boardMenuOpen = false
+                                                        if (isBoardMultiMode) {
+                                                            tempSelectedFids = if (tempSelectedFids.contains(fidStr)) tempSelectedFids - fidStr else tempSelectedFids + fidStr
+                                                        } else {
+                                                            viewModel.selectFid(fidStr, forum.name)
+                                                            boardMenuOpen = false
+                                                        }
                                                     },
+                                                    onLongClick = {
+                                                        isBoardMultiMode = true
+                                                        tempSelectedFids = setOf(fidStr)
+                                                    }
                                                 )
                                             }
                                         }
-                                        
+
                                         repeat(3 - rowForums.size) {
                                             Spacer(Modifier.weight(1f))
                                         }
@@ -519,11 +533,35 @@ val listStates = SearchTab.values().map { _k ->
                                 Spacer(Modifier.height(6.dp))
                             }
                     }
+                    
+                    if (isBoardMultiMode) {
+                        Spacer(Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                if (tempSelectedFids.isEmpty()) {
+                                    viewModel.selectFid(null, "全部板块")
+                                } else {
+                                    val nameStr = if (tempSelectedFids.size == 1) {
+                                        forumGroups.flatMap { it.forums }.find { it.fid == tempSelectedFids.first() }?.name ?: "1个板块"
+                                    } else {
+                                        "已选${tempSelectedFids.size}个板块"
+                                    }
+                                    viewModel.selectFids(tempSelectedFids.toList(), nameStr)
+                                }
+                                boardMenuOpen = false
+                                isBoardMultiMode = false
+                            },
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("确定选择", fontSize = 14.sp)
+                        }
+                    }
                 }
             }
         }
 
-                val accent = accentTextColor()
+        val accent = accentTextColor()
                 TabRow(
                     selectedTabIndex = pagerState.currentPage,
                     containerColor = colors.topBar,
@@ -934,10 +972,13 @@ private fun UserResultRow(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 private fun BoardChip(
     name: String,
     selected: Boolean,
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val colors = LocalMtfColors.current
     val primary = MaterialTheme.colorScheme.primary
@@ -948,7 +989,7 @@ private fun BoardChip(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(vertical = 9.dp, horizontal = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
