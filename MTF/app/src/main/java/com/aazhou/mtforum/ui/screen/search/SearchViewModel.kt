@@ -59,6 +59,15 @@ class SearchViewModel(
         }
     }
 
+    fun selectFids(fids: List<String>, name: String) {
+        val combined = fids.filter { it.isNotBlank() }.joinToString(",")
+        if (_selectedFid.value == combined.ifBlank { null }) return
+        _selectedFid.value = combined.ifBlank { null }
+        _selectedFidName.value = name
+
+        if (keyword.isNotBlank()) submit(keyword)
+    }
+
     fun selectFid(fid: String?, name: String) {
         if (_selectedFid.value == fid) return
         _selectedFid.value = fid
