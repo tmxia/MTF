@@ -413,7 +413,13 @@ val listStates = SearchTab.values().map { _k ->
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(colors.quoteBackground)
-                    .clickable { boardMenuOpen = true }
+                    .clickable {
+                        // 核心修复：每次打开弹窗前，从 ViewModel 同步真实的选中状态到弹窗临时变量
+                        val savedFids = viewModel.selectedFid.value?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
+                        tempSelectedFids = savedFids.toSet()
+                        isBoardMultiMode = savedFids.size > 1
+                        boardMenuOpen = true 
+                    }
                     .padding(horizontal = 10.dp, vertical = 5.dp),
             ) {
                 Icon(
