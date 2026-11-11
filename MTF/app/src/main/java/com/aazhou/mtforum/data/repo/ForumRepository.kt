@@ -682,7 +682,7 @@ class ForumRepository(
         http.get(url)
     }
 
-    suspend fun search(keyword: String, fid: String? = null): SearchResult = withContext(Dispatchers.IO) {
+    suspend fun search(keyword: String, fid: String? = null, orderBy: String? = null): SearchResult = withContext(Dispatchers.IO) {
         val encoded = java.net.URLEncoder.encode(keyword, "UTF-8")
         // 核心修复：将逗号分隔的 fid (如 "2,3") 转换为 Discuz 认识的数组格式 "&srchfid[]=2&srchfid[]=3"
         val fidParam = if (!fid.isNullOrEmpty() && fid != "0") {
@@ -693,8 +693,9 @@ class ForumRepository(
                 "&srchfid=${fids[0]}"
             } else ""
         } else ""
+        val orderParam = if (!orderBy.isNullOrBlank()) "&orderby=$orderBy" else ""
         val sr = ForumParser.parseSearchResult(
-            http.get(http.url("search.php?mod=forum&searchsubmit=yes&srchtxt=$encoded$fidParam&mobile=2")),
+            http.get(http.url("search.php?mod=forum&searchsubmit=yes&srchtxt=$encoded$fidParam$orderParam&mobile=2")),
         )
         applySearchBlockFilter(sr)
     }

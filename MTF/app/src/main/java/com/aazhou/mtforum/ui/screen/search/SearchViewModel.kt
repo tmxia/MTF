@@ -43,6 +43,14 @@ class SearchViewModel(
     private val _selectedFidName = MutableStateFlow("全部板块")
     val selectedFidName: StateFlow<String> = _selectedFidName.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow<String?>(null)
+    val sortOrder: StateFlow<String?> = _sortOrder.asStateFlow()
+
+    fun setSortOrder(order: String?) {
+        _sortOrder.value = order
+        if (keyword.isNotBlank()) submit(keyword)
+    }
+
     private val _forumGroups = MutableStateFlow<List<ForumGroup>>(emptyList())
     val forumGroups: StateFlow<List<ForumGroup>> = _forumGroups.asStateFlow()
 
@@ -159,7 +167,7 @@ class SearchViewModel(
             }
             if (_state.value == null) _state.value = UiState.Loading
             _state.value = try {
-                val result = repository.search(trimmed, _selectedFid.value)
+                val result = repository.search(trimmed, _selectedFid.value, _sortOrder.value)
                 this@SearchViewModel.nextUrl = result.nextUrl
                 saveToCache(result)
                 _resetScrollTick.value = _resetScrollTick.value + 1

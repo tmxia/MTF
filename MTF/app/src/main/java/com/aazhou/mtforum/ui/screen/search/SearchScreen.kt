@@ -1,5 +1,9 @@
 package com.aazhou.mtforum.ui.screen.search
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+
 import android.content.Context
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -134,6 +138,7 @@ fun SearchScreen(
     val forumGroups by viewModel.forumGroups.collectAsStateWithLifecycle()
     val selectedFidName by viewModel.selectedFidName.collectAsStateWithLifecycle()
     var boardMenuOpen by remember { mutableStateOf(false) }
+    var showSortMenu by remember { mutableStateOf(false) }
     var isBoardMultiMode by remember { mutableStateOf(false) }
     var tempSelectedFids by remember { mutableStateOf(setOf<String>()) }
     LaunchedEffect(Unit) {
@@ -438,10 +443,90 @@ val listStates = SearchTab.values().map { _k ->
                 Spacer(Modifier.width(2.dp))
                 Text(text = "▾", fontSize = 10.sp, color = colors.textHint)
             }
+            
+            Spacer(Modifier.width(8.dp))
+            
+            // 排序按钮
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.quoteBackground)
+                    .clickable { showSortMenu = true }
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
+            ) {
+                val currentSort = viewModel.sortOrder.collectAsState().value
+                Text(
+                    text = "排序：${if (currentSort == null) "相关度" else if (currentSort == "dateline") "时间" else if (currentSort == "lastpost") "回复" else "热度"}",
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = colors.textHint,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(2.dp))
+                Text(text = "▾", fontSize = 10.sp, color = colors.textHint)
+            }
         }
 
         
-        if (boardMenuOpen) {
+        
+    if (showSortMenu) {
+        Dialog(onDismissRequest = { showSortMenu = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colors.topBar)
+                    .padding(16.dp),
+            ) {
+                Text(
+                    text = "选择排序方式",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = bodyTextColor(),
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                val sortOptions = listOf(
+                    "按相关度" to null,
+                    "按发布时间" to "dateline",
+                    "按最后回复" to "lastpost",
+                    "按回复热度" to "replies"
+                )
+                sortOptions.forEach { (name, orderBy) ->
+                    val isSelected = viewModel.sortOrder.collectAsState().value == orderBy
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else colors.quoteBackground)
+                            .clickable {
+                                viewModel.setSortOrder(orderBy)
+                                showSortMenu = false
+                            }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = name,
+                            fontSize = 14.sp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else bodyTextColor(),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (boardMenuOpen) {
             Dialog(onDismissRequest = { boardMenuOpen = false; isBoardMultiMode = false }) {
                 Column(
                     modifier = Modifier
